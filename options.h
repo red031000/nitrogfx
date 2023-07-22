@@ -36,7 +36,7 @@ struct PngToNtrOptions {
     bool wrongSize;
     bool handleEmpty;
     bool vramTransfer;
-    uint32_t mappingType;
+    int mappingType;
 };
 
 struct NtrToPngOptions {
