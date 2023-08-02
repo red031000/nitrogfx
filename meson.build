@@ -23,3 +23,5 @@ nitrogfx_exe = executable('nitrogfx',
     native: native,
     install: install
 )
+
+meson.override_find_program('nitrogfx', nitrogfx_exe)
