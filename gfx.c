@@ -46,10 +46,10 @@ static void ConvertFromTiles1Bpp(unsigned char *src, unsigned char *dest, int nu
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
-            int idxComponent2 = chunkStartX * tilesPerRow + tilesSoFar;
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentX = chunkStartX * tilesPerRow + tilesSoFar;
             unsigned char srcPixelOctet = *src++;
-            unsigned char *destPixelOctet = &dest[idxComponent1 * pitch + idxComponent2];
+            unsigned char *destPixelOctet = &dest[idxComponentY * pitch + idxComponentX];
 
             for (int k = 0; k < 8; k++) {
                 *destPixelOctet <<= 1;
@@ -72,10 +72,10 @@ static void ConvertFromTiles4Bpp(unsigned char *src, unsigned char *dest, int nu
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
 
             for (int k = 0; k < 4; k++) {
-                int idxComponent2 = (chunkStartX * tilesPerRow + tilesSoFar) * 4 + k;
+                int idxComponentX = (chunkStartX * tilesPerRow + tilesSoFar) * 4 + k;
                 unsigned char srcPixelPair = *src++;
                 unsigned char leftPixel = srcPixelPair & 0xF;
                 unsigned char rightPixel = srcPixelPair >> 4;
@@ -85,7 +85,7 @@ static void ConvertFromTiles4Bpp(unsigned char *src, unsigned char *dest, int nu
                     rightPixel = 15 - rightPixel;
                 }
 
-                dest[idxComponent1 * pitch + idxComponent2] = (leftPixel << 4) | rightPixel;
+                dest[idxComponentY * pitch + idxComponentX] = (leftPixel << 4) | rightPixel;
             }
         }
 
@@ -145,16 +145,16 @@ static void ConvertFromTiles8Bpp(unsigned char *src, unsigned char *dest, int nu
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
 
             for (int k = 0; k < 8; k++) {
-                int idxComponent2 = (chunkStartX * tilesPerRow + tilesSoFar) * 8 + k;
+                int idxComponentX = (chunkStartX * tilesPerRow + tilesSoFar) * 8 + k;
                 unsigned char srcPixel = *src++;
 
                 if (invertColors)
                     srcPixel = 255 - srcPixel;
 
-                dest[idxComponent1 * pitch + idxComponent2] = srcPixel;
+                dest[idxComponentY * pitch + idxComponentX] = srcPixel;
             }
         }
 
@@ -211,9 +211,9 @@ static void ConvertToTiles1Bpp(unsigned char *src, unsigned char *dest, int numT
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
-            int idxComponent2 = chunkStartX * tilesPerRow + tilesSoFar;
-            unsigned char srcPixelOctet = src[idxComponent1 * pitch + idxComponent2];
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentX = chunkStartX * tilesPerRow + tilesSoFar;
+            unsigned char srcPixelOctet = src[idxComponentY * pitch + idxComponentX];
             unsigned char *destPixelOctet = dest++;
 
             for (int k = 0; k < 8; k++) {
@@ -237,11 +237,11 @@ static void ConvertToTiles4Bpp(unsigned char *src, unsigned char *dest, int numT
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
 
             for (int k = 0; k < 4; k++) {
-                int idxComponent2 = (chunkStartX * tilesPerRow + tilesSoFar) * 4 + k;
-                unsigned char srcPixelPair = src[idxComponent1 * pitch + idxComponent2];
+                int idxComponentX = (chunkStartX * tilesPerRow + tilesSoFar) * 4 + k;
+                unsigned char srcPixelPair = src[idxComponentY * pitch + idxComponentX];
                 unsigned char leftPixel = srcPixelPair >> 4;
                 unsigned char rightPixel = srcPixelPair & 0xF;
 
@@ -304,11 +304,11 @@ static void ConvertToTiles8Bpp(unsigned char *src, unsigned char *dest, int numT
 
     for (int i = 0; i < numTiles; i++) {
         for (int j = 0; j < 8; j++) {
-            int idxComponent1 = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
 
             for (int k = 0; k < 8; k++) {
-                int idxComponent2 = (chunkStartX * tilesPerRow + tilesSoFar) * 8 + k;
-                unsigned char srcPixel = src[idxComponent1 * pitch + idxComponent2];
+                int idxComponentX = (chunkStartX * tilesPerRow + tilesSoFar) * 8 + k;
+                unsigned char srcPixel = src[idxComponentY * pitch + idxComponentX];
 
                 if (invertColors)
                     srcPixel = 255 - srcPixel;
