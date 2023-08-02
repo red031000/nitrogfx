@@ -1,6 +1,7 @@
 project('nitrogfx', 'c')
 
 native = get_option('native')
+install = native and meson.is_cross_build() ? false : true
 
 libpng_dep = dependency('libpng', native: native)
 
@@ -20,5 +21,5 @@ nitrogfx_exe = executable('nitrogfx',
     ],
     dependencies: libpng_dep,
     native: native,
-    install: true
+    install: install
 )
