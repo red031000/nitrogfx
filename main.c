@@ -37,7 +37,7 @@ void ConvertGbaToPng(char *inputPath, char *outputPath, struct GbaToPngOptions *
         image.hasPalette = false;
     }
 
-    ReadImage(inputPath, options->width, options->bitDepth, options->tilesPerRow, options->rowsPerChunk, &image, !image.hasPalette);
+    ReadImage(inputPath, options->width, options->bitDepth, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette);
 
     image.hasTransparency = options->hasTransparency;
 
@@ -82,7 +82,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
         image.hasPalette = false;
     }
 
-    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->tilesPerRow, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack);
+    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack);
 
     if (key)
     {
@@ -111,7 +111,7 @@ void ConvertPngToGba(char *inputPath, char *outputPath, struct PngToGbaOptions *
 
     ReadPng(inputPath, &image);
 
-    WriteImage(outputPath, options->numTiles, options->bitDepth, options->tilesPerRow, options->rowsPerChunk, &image, !image.hasPalette);
+    WriteImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette);
 
     FreeImage(&image);
 }
@@ -160,7 +160,7 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
         free(string);
     }
 
-    WriteNtrImage(outputPath, options->numTiles, image.bitDepth, options->tilesPerRow, options->rowsPerChunk,
+    WriteNtrImage(outputPath, options->numTiles, image.bitDepth, options->colsPerChunk, options->rowsPerChunk,
                   &image, !image.hasPalette, options->clobberSize, options->byteOrder, options->version101,
                   options->sopc, options->vramTransfer, options->scanMode, options->mappingType, key, options->wrongSize);
 
@@ -178,7 +178,7 @@ void HandleGbaToPngCommand(char *inputPath, char *outputPath, int argc, char **a
         options.bitDepth = 4;
     options.hasTransparency = false;
     options.width = 1;
-    options.tilesPerRow = 1;
+    options.colsPerChunk = 1;
     options.rowsPerChunk = 1;
 
     for (int i = 3; i < argc; i++)
@@ -211,18 +211,18 @@ void HandleGbaToPngCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.width < 1)
                 FATAL_ERROR("Width must be positive.\n");
         }
-        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-tpr") == 0)
+        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
             if (i + 1 >= argc)
-                FATAL_ERROR("No tiles per row value following \"%s\".\n", option);
+                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
 
             i++;
 
-            if (!ParseNumber(argv[i], NULL, 10, &options.tilesPerRow))
-                FATAL_ERROR("Failed to parse tiles per row.\n");
+            if (!ParseNumber(argv[i], NULL, 10, &options.colsPerChunk))
+                FATAL_ERROR("Failed to parse columns per chunk.\n");
 
-            if (options.tilesPerRow < 1)
-                FATAL_ERROR("tiles per row must be positive.\n");
+            if (options.colsPerChunk < 1)
+                FATAL_ERROR("columns per chunk must be positive.\n");
         }
         else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0)
         {
@@ -243,8 +243,8 @@ void HandleGbaToPngCommand(char *inputPath, char *outputPath, int argc, char **a
         }
     }
 
-    if (options.tilesPerRow > options.width)
-        options.width = options.tilesPerRow;
+    if (options.colsPerChunk > options.width)
+        options.width = options.colsPerChunk;
 
     ConvertGbaToPng(inputPath, outputPath, &options);
 }
@@ -255,7 +255,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     options.paletteFilePath = NULL;
     options.hasTransparency = false;
     options.width = 0;
-    options.tilesPerRow = 1;
+    options.colsPerChunk = 1;
     options.rowsPerChunk = 1;
     options.palIndex = 1;
     options.scanFrontToBack = false;
@@ -304,18 +304,18 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.width < 1)
                 FATAL_ERROR("Width must be positive.\n");
         }
-        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-tpr") == 0)
+        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
             if (i + 1 >= argc)
-                FATAL_ERROR("No tiles per row value following \"%s\".\n", option);
+                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
 
             i++;
 
-            if (!ParseNumber(argv[i], NULL, 10, &options.tilesPerRow))
-                FATAL_ERROR("Failed to parse tiles per row.\n");
+            if (!ParseNumber(argv[i], NULL, 10, &options.colsPerChunk))
+                FATAL_ERROR("Failed to parse columns per chunk.\n");
 
-            if (options.tilesPerRow < 1)
-                FATAL_ERROR("tiles per row must be positive.\n");
+            if (options.colsPerChunk < 1)
+                FATAL_ERROR("columns per chunk must be positive.\n");
         }
         else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0)
         {
@@ -344,8 +344,8 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
         }
     }
 
-    if (options.width != 0 && options.tilesPerRow > options.width)
-        options.width = options.tilesPerRow;
+    if (options.width != 0 && options.colsPerChunk > options.width)
+        options.width = options.colsPerChunk;
 
     ConvertNtrToPng(inputPath, outputPath, &options);
 }
@@ -361,7 +361,7 @@ void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **a
     struct PngToGbaOptions options;
     options.numTiles = 0;
     options.bitDepth = bitDepth;
-    options.tilesPerRow = 1;
+    options.colsPerChunk = 1;
     options.rowsPerChunk = 1;
 
     for (int i = 3; i < argc; i++)
@@ -381,18 +381,18 @@ void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.numTiles < 1)
                 FATAL_ERROR("Number of tiles must be positive.\n");
         }
-        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-tpr") == 0)
+        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
             if (i + 1 >= argc)
-                FATAL_ERROR("No tiles per row value following \"%s\".\n", option);
+                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
 
             i++;
 
-            if (!ParseNumber(argv[i], NULL, 10, &options.tilesPerRow))
-                FATAL_ERROR("Failed to parse tiles per row.\n");
+            if (!ParseNumber(argv[i], NULL, 10, &options.colsPerChunk))
+                FATAL_ERROR("Failed to parse columns per chunk.\n");
 
-            if (options.tilesPerRow < 1)
-                FATAL_ERROR("tiles per row must be positive.\n");
+            if (options.colsPerChunk < 1)
+                FATAL_ERROR("columns per chunk must be positive.\n");
         }
         else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0)
         {
@@ -421,7 +421,7 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
     struct PngToNtrOptions options;
     options.numTiles = 0;
     options.bitDepth = 4;
-    options.tilesPerRow = 1;
+    options.colsPerChunk = 1;
     options.rowsPerChunk = 1;
     options.wrongSize = false;
     options.clobberSize = false;
@@ -450,18 +450,18 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.numTiles < 1)
                 FATAL_ERROR("Number of tiles must be positive.\n");
         }
-        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-tpr") == 0)
+        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
             if (i + 1 >= argc)
-                FATAL_ERROR("No tiles per row value following \"%s\".\n", option);
+                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
 
             i++;
 
-            if (!ParseNumber(argv[i], NULL, 10, &options.tilesPerRow))
-                FATAL_ERROR("Failed to parse tiles per row.\n");
+            if (!ParseNumber(argv[i], NULL, 10, &options.colsPerChunk))
+                FATAL_ERROR("Failed to parse columns per chunk.\n");
 
-            if (options.tilesPerRow < 1)
-                FATAL_ERROR("tiles per row must be positive.\n");
+            if (options.colsPerChunk < 1)
+                FATAL_ERROR("columns per chunk must be positive.\n");
         }
         else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0)
         {

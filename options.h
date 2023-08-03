@@ -11,7 +11,7 @@ struct GbaToPngOptions {
     int bitDepth;
     bool hasTransparency;
     int width;
-    int tilesPerRow;
+    int colsPerChunk;
     int rowsPerChunk;
     int palIndex;
 };
@@ -19,14 +19,14 @@ struct GbaToPngOptions {
 struct PngToGbaOptions {
     int numTiles;
     int bitDepth;
-    int tilesPerRow;
+    int colsPerChunk;
     int rowsPerChunk;
 };
 
 struct PngToNtrOptions {
     int numTiles;
     int bitDepth;
-    int tilesPerRow;
+    int colsPerChunk;
     int rowsPerChunk;
     bool clobberSize;
     bool byteOrder;
@@ -44,7 +44,7 @@ struct NtrToPngOptions {
     int bitDepth;
     bool hasTransparency;
     int width;
-    int tilesPerRow;
+    int colsPerChunk;
     int rowsPerChunk;
     int palIndex;
     bool scanFrontToBack;
