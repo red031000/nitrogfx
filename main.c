@@ -1,4 +1,4 @@
-// Copyright (c) 2015 YamaArashi, 2021-2023 red031000
+// Copyright (c) 2015 YamaArashi, 2021-2024 red031000
 
 #include <ctype.h>
 #include <stdio.h>
@@ -172,7 +172,7 @@ void HandleGbaToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     char *inputFileExtension = GetFileExtension(inputPath);
     struct GbaToPngOptions options;
     options.paletteFilePath = NULL;
-    if (isdigit(inputFileExtension[0]))
+    if (isdigit((unsigned char)inputFileExtension[0]))
         options.bitDepth = inputFileExtension[0] - '0';
     else
         options.bitDepth = 4;
@@ -565,6 +565,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     bool nopad = false;
     int bitdepth = 0;
     int compNum = 0;
+    bool pcmp = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -608,6 +609,10 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
             if (compNum > 255)
                 FATAL_ERROR("Compression value must be 255 or below.\n");
         }
+        else if (strcmp(option, "-pcmp") == 0)
+        {
+            pcmp = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -615,7 +620,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     }
 
     ReadPngPalette(inputPath, &palette);
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp);
 }
 
 void HandleGbaToJascPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -654,7 +659,7 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
         }
     }
 
-    ReadNtrPalette(inputPath, &palette, bitdepth, 1);
+    ReadNtrPalette(inputPath, &palette, bitdepth, 0);
     WriteJascPalette(outputPath, &palette);
 }
 
@@ -703,6 +708,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     bool nopad = false;
     int bitdepth = 0;
     int compNum = 0;
+    bool pcmp = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -759,6 +765,10 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
         {
             nopad = true;
         }
+        else if (strcmp(option, "-pcmp") == 0)
+        {
+            pcmp = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -772,7 +782,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     if (numColors != 0)
         palette.numColors = numColors;
 
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp);
 }
 
 void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 YamaArashi, 2021-2023 red031000
+// Copyright (c) 2015 YamaArashi, 2021-2024 red031000
 
 #ifndef GFX_H
 #define GFX_H
@@ -60,7 +60,7 @@ void FreeImage(struct Image *image);
 void ReadGbaPalette(char *path, struct Palette *palette);
 void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex);
 void WriteGbaPalette(char *path, struct Palette *palette);
-void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum);
+void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum, bool pcmp);
 void ReadNtrCell(char *path, struct JsonToCellOptions *options);
 void WriteNtrCell(char *path, struct JsonToCellOptions *options);
 void WriteNtrScreen(char *path, struct JsonToScreenOptions *options);

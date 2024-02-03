@@ -1,4 +1,4 @@
-// Copyright (c) 2018 huderlem, 2021-2023 red031000
+// Copyright (c) 2018 huderlem, 2021-2024 red031000
 
 #ifndef OPTIONS_H
 #define OPTIONS_H
