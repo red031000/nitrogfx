@@ -1046,7 +1046,7 @@ void ReadNtrCell(char *path, struct JsonToCellOptions *options)
         FATAL_ERROR("Not a valid NCER cell file.\n");
     }
 
-    options->labelEnabled = data[0xE] != 1;
+    options->labelEnabled = false;
 
     unsigned int blockSize;
     offset = FindNitroDataBlock(data, "KBEC", fileSize, &blockSize);
@@ -1060,6 +1060,7 @@ void ReadNtrCell(char *path, struct JsonToCellOptions *options)
     offset = FindNitroDataBlock(data, "LBAL", fileSize, &blockSize);
     if (offset != -1u)
     {
+        options->labelEnabled = true;
         ReadNtrCell_LABL(data, offset, blockSize, options);
     }
 
