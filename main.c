@@ -1115,6 +1115,75 @@ void HandleHuffDecompressCommand(char *inputPath, char *outputPath, int argc UNU
     free(uncompressedData);
 }
 
+void HandleNtrFontToPngCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    struct NtrFontOptions options;
+    options.metadataFilePath = NULL;
+    options.useSubscreenPalette = false;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-metadata") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No file path following \"-metadata\".\n");
+
+            options.metadataFilePath = argv[++i];
+        }
+        else if (strcmp(option, "-subscreen") == 0)
+        {
+            options.useSubscreenPalette = true;
+        }
+    }
+
+    if (options.metadataFilePath == NULL)
+        FATAL_ERROR("No file path given for \"-metadata\".\n");
+
+    struct Image image;
+    struct NtrFontMetadata metadata;
+    ReadNtrFont(inputPath, &image, &metadata, options.useSubscreenPalette);
+    WritePng(outputPath, &image);
+
+    char *metadataJson = GetNtrFontMetadataJson(&metadata);
+    WriteWholeStringToFile(options.metadataFilePath, metadataJson);
+
+    free(metadata.glyphWidthTable);
+    FreeImage(&image);
+}
+
+void HandlePngToNtrFontCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    struct NtrFontOptions options;
+    options.metadataFilePath = NULL;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-metadata") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No file path following \"-metadata\".\n");
+
+            options.metadataFilePath = argv[++i];
+        }
+    }
+
+    if (options.metadataFilePath == NULL)
+        FATAL_ERROR("No file path given for \"-metadata\".\n");
+
+    struct NtrFontMetadata *metadata = ParseNtrFontMetadataJson(options.metadataFilePath);
+    struct Image image = { .bitDepth = 2 };
+
+    ReadPng(inputPath, &image);
+    WriteNtrFont(outputPath, &image, metadata);
+
+    FreeNtrFontMetadata(metadata);
+    FreeImage(&image);
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3)
@@ -1159,6 +1228,8 @@ int main(int argc, char **argv)
         { "lz", NULL, HandleLZDecompressCommand },
         { NULL, "rl", HandleRLCompressCommand },
         { "rl", NULL, HandleRLDecompressCommand },
+        { "NFGR", "png", HandleNtrFontToPngCommand },
+        { "png", "NFGR", HandlePngToNtrFontCommand },
         { NULL, NULL, NULL }
     };
 
