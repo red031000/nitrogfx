@@ -1074,7 +1074,17 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     if (fp == NULL)
         FATAL_ERROR("Failed to open \"%s\" for writing.\n", path);
 
-    unsigned int totalSize = (options->labelEnabled > 0 ? 0x34 : 0x20) + options->cellCount * (options->extended ? 0x16 : 0xe);
+    int iterNum = (options->extended ? 0x10 : 0x8);
+
+    // KBEC base size: 0x08 per bank, or 0x10 per extended bank
+    unsigned int kbecSize = options->cellCount * (options->extended ? 0x10 : 0x08);
+    // add 0x06 for number of OAMs - can be more than 1
+    for (int idx = 0; idx < options->cellCount * iterNum; idx += iterNum)
+    {
+        kbecSize += options->cells[idx / iterNum]->oamCount * 0x06;
+    }
+
+    unsigned int totalSize = (options->labelEnabled > 0 ? 0x34 : 0x20) + kbecSize;
 
     if (options->labelEnabled)
     {
@@ -1099,18 +1109,16 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
         KBECHeader[10] = 1; //extended
     }
 
-    unsigned int size = options->cellCount * (options->extended ? 0x16 : 0xe);
-
-    KBECHeader[4] = (size + 0x20) & 0xFF; //size
-    KBECHeader[5] = (size + 0x20) >> 8; //unlikely to be more than 16 bits, but there are 32 allocated, change if necessary
+    KBECHeader[4] = (kbecSize + 0x20) & 0xFF; //size
+    KBECHeader[5] = (kbecSize + 0x20) >> 8; //unlikely to be more than 16 bits, but there are 32 allocated, change if necessary
 
     KBECHeader[16] = (options->mappingType & 0xFF); //not possible to be more than 8 bits, though 32 are allocated
 
     fwrite(KBECHeader, 1, 0x20, fp);
 
-    unsigned char *KBECContents = malloc(size);
+    unsigned char *KBECContents = malloc(kbecSize);
 
-    memset(KBECContents, 0, size);
+    memset(KBECContents, 0, kbecSize);
 
     /*if (!options->extended)
     {
@@ -1119,7 +1127,6 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     }*/
 
     int i;
-    int iterNum = (options->extended ? 0x10 : 0x8);
     int totalOam = 0;
     for (i = 0; i < options->cellCount * iterNum; i += iterNum)
     {
@@ -1203,7 +1210,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
         }
     }
 
-    fwrite(KBECContents, 1, size, fp);
+    fwrite(KBECContents, 1, kbecSize, fp);
 
     free(KBECContents);
 
