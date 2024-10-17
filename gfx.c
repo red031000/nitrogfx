@@ -926,7 +926,7 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
     for (int i = 0; i < options->cellCount; i++)
     {
         int offset = blockOffset + 0x20 + (i * celSize);
-        if (offset + celSize > blockSize) {
+        if (offset + celSize > blockOffset + blockSize) {
             FATAL_ERROR("corrupted CEBK block");
         }
         options->cells[i] = malloc(sizeof(struct Cell));
