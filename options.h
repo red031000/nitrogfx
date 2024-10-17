@@ -129,6 +129,22 @@ struct SequenceData {
     struct FrameData **frameData;
 };
 
+struct FrameData_New {
+    short frameDelay;
+    int dataOffset;
+    struct AnimationResults *resultData;
+};
+
+struct SequenceData_New {
+    short frameCount;
+    short unk02;
+    short dataType;
+    short unk06;
+    int unk08;
+    int headerOffset;
+    struct FrameData_New **frameData;
+};
+
 struct AnimationDataSRT {
     short index;
     unsigned short rotation;
@@ -164,6 +180,16 @@ struct JsonToAnimationOptions {
     char **labels;
     int labelCount;
     short resultCount;
+};
+
+struct JsonToAnimationOptions_New {
+    bool multiCell;
+    short sequenceCount;
+    short frameCount;
+    struct SequenceData_New **sequenceData;
+    bool labelEnabled;
+    char **labels;
+    int labelCount;
 };
 
 #endif // OPTIONS_H

@@ -66,5 +66,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options);
 void WriteNtrScreen(char *path, struct JsonToScreenOptions *options);
 void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options);
 void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options);
+void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options);
+void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options);
 
 #endif // GFX_H

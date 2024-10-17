@@ -846,30 +846,70 @@ void HandleJsonToNtrScreenCommand(char *inputPath, char *outputPath, int argc UN
     FreeNSCRScreen(options);
 }
 
-void HandleJsonToNtrAnimationCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+void HandleJsonToNtrAnimationCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
-    struct JsonToAnimationOptions *options;
+    bool useNewNANRParser = false;
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
 
-    options = ParseNANRJson(inputPath);
+        if (strcmp(option, "-newparser") == 0)
+        {
+            useNewNANRParser = true;
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
 
-    options->multiCell = false;
-
-    WriteNtrAnimation(outputPath, options);
-
-    FreeNANRAnimation(options);
+    if (useNewNANRParser) 
+    {
+        struct JsonToAnimationOptions_New *options = ParseNANRJson_New(inputPath);
+        options->multiCell = false;
+        WriteNtrAnimation_New(outputPath, options);
+        FreeNANRAnimation_New(options);
+    } else 
+    {
+        struct JsonToAnimationOptions *options = ParseNANRJson(inputPath);
+        options->multiCell = false;
+        WriteNtrAnimation(outputPath, options);
+        FreeNANRAnimation(options);
+    }
 }
 
 void HandleNtrAnimationToJsonCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
 {
-    struct JsonToAnimationOptions *options = malloc(sizeof(struct JsonToAnimationOptions));
+    bool useNewNANRParser = false;
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
 
-    ReadNtrAnimation(inputPath, options);
+        if (strcmp(option, "-newparser") == 0)
+        {
+            useNewNANRParser = true;
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
 
-    char *json = GetNANRJson(options);
-
-    WriteWholeStringToFile(outputPath, json);
-
-    FreeNANRAnimation(options);
+    if (useNewNANRParser) 
+    {
+        struct JsonToAnimationOptions_New *options = malloc(sizeof(struct JsonToAnimationOptions_New));
+        ReadNtrAnimation_New(inputPath, options);
+        char *json = GetNANRJson_New(options);
+        WriteWholeStringToFile(outputPath, json);
+        FreeNANRAnimation_New(options);
+    } else 
+    {
+        struct JsonToAnimationOptions *options = malloc(sizeof(struct JsonToAnimationOptions));
+        ReadNtrAnimation(inputPath, options);
+        char *json = GetNANRJson(options);
+        WriteWholeStringToFile(outputPath, json);
+        FreeNANRAnimation(options);
+    }
 }
 
 void HandleJsonToNtrMulticellAnimationCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)

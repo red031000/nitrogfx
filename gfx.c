@@ -1470,6 +1470,113 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
     free(data);
 }
 
+void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options)
+{
+    int fileSize;
+    unsigned char *data = ReadWholeFile(path, &fileSize);
+
+    if (memcmp(data, "RNAN", 4) != 0 && memcmp(data, "RAMN", 4) != 0) //NANR/NMAR
+    {
+        FATAL_ERROR("Not a valid NANR/NMAR animation file.\n");
+    }
+
+    options->labelEnabled = data[0xE] != 1;
+
+    if (memcmp(data + 0x10, "KNBA", 4) != 0 ) //ABNK
+    {
+        FATAL_ERROR("Not a valid ABNK animation file.\n");
+    }
+
+    options->sequenceCount = data[0x18] | (data[0x19] << 8);
+    options->frameCount = data[0x1A] | (data[0x1B] << 8);
+
+    options->sequenceData = malloc(sizeof(struct SequenceData *) * options->sequenceCount);
+
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        options->sequenceData[i] = malloc(sizeof(struct SequenceData));
+    }
+
+    int offset = 0x30;
+
+    for (int i = 0; i < options->sequenceCount; i++, offset += 0x10)
+    {
+        options->sequenceData[i]->frameCount = data[offset] | (data[offset + 1] << 8);
+        options->sequenceData[i]->unk02 = data[offset + 2] | (data[offset + 3] << 8);
+        options->sequenceData[i]->dataType = data[offset + 4] | (data[offset + 5] << 8);
+        options->sequenceData[i]->unk06 = data[offset + 6] | (data[offset + 7] << 8);
+        options->sequenceData[i]->unk08 = data[offset + 8] | (data[offset + 9] << 8) | (data[offset + 10] << 16) | (data[offset + 11] << 24);
+        options->sequenceData[i]->headerOffset = data[offset + 12] | (data[offset + 13] << 8) | (data[offset + 14] << 16) | (data[offset + 15] << 24);
+
+        options->sequenceData[i]->frameData = malloc(sizeof(struct FrameData *) * options->sequenceData[i]->frameCount);
+        for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
+        {
+            options->sequenceData[i]->frameData[j] = malloc(sizeof(struct FrameData));
+        }
+    }
+
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
+        {
+            int frameOffset = offset + options->sequenceData[i]->headerOffset + j * 0x8;
+            options->sequenceData[i]->frameData[j]->dataOffset = data[frameOffset] | (data[frameOffset + 1] << 8) | (data[frameOffset + 2] << 16) | (data[frameOffset + 3] << 24);
+            options->sequenceData[i]->frameData[j]->frameDelay = data[frameOffset + 4] | (data[frameOffset + 5] << 8);
+            options->sequenceData[i]->frameData[j]->resultData = malloc(sizeof(struct AnimationResults));
+            //0xBEEF
+        }
+    }
+
+    offset = 0x18 + (data[0x24] | (data[0x25] << 8) | (data[0x26] << 16) | (data[0x27] << 24)); //start of animation results
+    int labelOffset = offset;
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
+        {
+            int dataOffset = offset + options->sequenceData[i]->frameData[j]->dataOffset;
+            switch (options->sequenceData[i]->dataType) 
+            {
+                case 0: //index
+                    options->sequenceData[i]->frameData[j]->resultData->index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                    labelOffset += 0x02;
+                    break;
+
+                case 1: //SRT
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.rotation = data[dataOffset + 2] | (data[dataOffset + 3] << 8);
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleX = data[dataOffset + 4] | (data[dataOffset + 5] << 8) | (data[dataOffset + 6] << 16) | (data[dataOffset + 7] << 24);
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleY = data[dataOffset + 8] | (data[dataOffset + 9] << 8) | (data[dataOffset + 10] << 16) | (data[dataOffset + 11] << 24);
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionX = data[dataOffset + 12] | (data[dataOffset + 13] << 8);
+                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionY = data[dataOffset + 14] | (data[dataOffset + 15] << 8);
+                    labelOffset += 0x10;
+                    break;
+
+                case 2: //T
+                    options->sequenceData[i]->frameData[j]->resultData->dataT.index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionX = data[dataOffset + 4] | (data[dataOffset + 5] << 8);
+                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionY = data[dataOffset + 6] | (data[dataOffset + 7] << 8);
+                    labelOffset += 0x08;
+                    break;
+            }
+        }
+    }
+
+    if (options->labelEnabled)
+    {
+        options->labelCount = options->sequenceCount; //*should* be the same
+        options->labels = malloc(sizeof(char *) * options->labelCount);
+        labelOffset += 0x02 + 0x0C; // 0x02 for extra 0xCCCC, 0x0C for LABL header
+        for (int i = 0; i < options->labelCount; i++)
+        {
+            options->labels[i] = malloc(strlen((char *)data + labelOffset) + 1);
+            strcpy(options->labels[i], (char *)data + labelOffset);
+            labelOffset += strlen((char *)data + labelOffset) + 1;
+        }
+    }
+
+    free(data);
+}
+
 void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
 {
     FILE *fp = fopen(path, "wb");
@@ -1635,6 +1742,232 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
                 break;
         }
     }
+
+    fwrite(KBNAContents, 1, contentsSize, fp);
+
+    free(KBNAContents);
+
+    if (options->labelEnabled)
+    {
+        unsigned int lablSize = 8;
+        for (int j = 0; j < options->labelCount; j++)
+        {
+            lablSize += (unsigned)strlen(options->labels[j]) + 5;
+        }
+
+        unsigned char *labl = malloc(lablSize);
+
+        memset(labl, 0, lablSize);
+
+        strcpy((char *) labl, "LBAL");
+        labl[4] = lablSize & 0xff;
+        labl[5] = lablSize >> 8;
+
+        unsigned int position = 0;
+
+        i = 0;
+        for (int j = 0; j < options->labelCount; j++)
+        {
+            labl[i + 8] = position & 0xff;
+            labl[i + 9] = position >> 8;
+
+            position += (unsigned)strlen(options->labels[j]) + 1;
+            i += 4;
+        }
+
+        for (int j = 0; j < options->labelCount; j++)
+        {
+            strcpy((char *) (labl + (i + 8)), options->labels[j]);
+            i += (int)strlen(options->labels[j]) + 1;
+        }
+
+        fwrite(labl, 1, lablSize, fp);
+
+        free(labl);
+
+        if(!options->multiCell)
+        {
+            unsigned char txeu[0xc] = {0x54, 0x58, 0x45, 0x55, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+            fwrite(txeu, 1, 0xc, fp);
+        }
+    }
+
+    fclose(fp);
+}
+
+void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options)
+{
+    FILE *fp = fopen(path, "wb");
+
+    if (fp == NULL)
+        FATAL_ERROR("Failed to open \"%s\" for writing.\n", path);
+
+    unsigned int totalSize = 0x20 + options->sequenceCount * 0x10 + options->frameCount * 0x8;
+
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        if (options->sequenceData[i]->dataType == 0)
+            totalSize += 0x02 * options->sequenceData[i]->frameCount;
+        else if (options->sequenceData[i]->dataType == 1)
+            totalSize += 0x10 * options->sequenceData[i]->frameCount;
+        else if (options->sequenceData[i]->dataType == 2)
+            totalSize += 0x08 * options->sequenceData[i]->frameCount;
+    }
+    totalSize += 0x02; // account for 0xCCCC
+
+    unsigned int KNBASize = totalSize;
+
+    if (options->labelEnabled)
+    {
+        totalSize += options->multiCell ? 0x8 : 0x14;
+        for (int j = 0; j < options->labelCount; j++)
+        {
+            totalSize += (unsigned)strlen(options->labels[j]) + 5; //strlen + terminator + pointer
+        }
+    }
+
+    WriteGenericNtrHeader(fp, options->multiCell ? "RAMN" : "RNAN", totalSize, true, false, options->labelEnabled ? (options->multiCell ? 2 : 3) : 1);
+
+    unsigned char KBNAHeader[0x20] =
+        {
+            0x4B, 0x4E, 0x42, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+
+    KBNAHeader[4] = KNBASize & 0xff;
+    KBNAHeader[5] = (KNBASize >> 8) & 0xff;
+    KBNAHeader[6] = (KNBASize >> 16) & 0xff;
+    KBNAHeader[7] = KNBASize >> 24;
+
+    KBNAHeader[8] = options->sequenceCount & 0xff;
+    KBNAHeader[9] = options->sequenceCount >> 8;
+
+    KBNAHeader[10] = options->frameCount & 0xff;
+    KBNAHeader[11] = options->frameCount >> 8;
+
+    unsigned int frameOffset = 0x18 + options->sequenceCount * 0x10;
+
+    KBNAHeader[16] = frameOffset & 0xff;
+    KBNAHeader[17] = (frameOffset >> 8) & 0xff;
+    KBNAHeader[18] = (frameOffset >> 16) & 0xff;
+    KBNAHeader[19] = frameOffset >> 24;
+
+    unsigned int resultsOffset = frameOffset + options->frameCount * 0x8;
+
+    KBNAHeader[20] = resultsOffset & 0xff;
+    KBNAHeader[21] = (resultsOffset >> 8) & 0xff;
+    KBNAHeader[22] = (resultsOffset >> 16) & 0xff;
+    KBNAHeader[23] = resultsOffset >> 24;
+
+    fwrite(KBNAHeader, 1, 0x20, fp);
+
+    int contentsSize = KNBASize - 0x20;
+    unsigned char *KBNAContents = malloc(contentsSize);
+
+    int i;
+    int framePtrCounter = 0;
+    for (i = 0; i < options->sequenceCount * 0x10; i += 0x10)
+    {
+        KBNAContents[i] = options->sequenceData[i / 0x10]->frameCount & 0xff;
+        KBNAContents[i + 1] = options->sequenceData[i / 0x10]->frameCount >> 8;
+        KBNAContents[i + 2] = options->sequenceData[i / 0x10]->unk02 & 0xff;
+        KBNAContents[i + 3] = options->sequenceData[i / 0x10]->unk02 >> 8;
+        KBNAContents[i + 4] = options->sequenceData[i / 0x10]->dataType & 0xff;
+        KBNAContents[i + 5] = options->sequenceData[i / 0x10]->dataType >> 8;
+        KBNAContents[i + 6] = options->sequenceData[i / 0x10]->unk06 & 0xff;
+        KBNAContents[i + 7] = options->sequenceData[i / 0x10]->unk06 >> 8;
+        KBNAContents[i + 8] = options->sequenceData[i / 0x10]->unk08 & 0xff;
+        KBNAContents[i + 9] = (options->sequenceData[i / 0x10]->unk08 >> 8) & 0xff;
+        KBNAContents[i + 10] = (options->sequenceData[i / 0x10]->unk08 >> 16) & 0xff;
+        KBNAContents[i + 11] = options->sequenceData[i / 0x10]->unk08 >> 24;
+        KBNAContents[i + 12] = framePtrCounter & 0xff;
+        KBNAContents[i + 13] = (framePtrCounter >> 8) & 0xff;
+        KBNAContents[i + 14] = (framePtrCounter >> 16) & 0xff;
+        KBNAContents[i + 15] = framePtrCounter >> 24;
+        framePtrCounter += options->sequenceData[i / 0x10]->frameCount * 8;
+    }
+
+    int j;
+    int m;
+    int dataOffset = 0;
+    for (j = i, m = 0; m < options->sequenceCount; m++)
+    {
+        for (int k = 0; k < options->sequenceData[m]->frameCount; k++) 
+        {
+            KBNAContents[j + (k * 8)] = dataOffset & 0xff;
+            KBNAContents[j + (k * 8) + 1] = (dataOffset >> 8) & 0xff;
+            KBNAContents[j + (k * 8) + 2] = (dataOffset >> 16) & 0xff;
+            KBNAContents[j + (k * 8) + 3] = dataOffset >> 24;
+            KBNAContents[j + (k * 8) + 4] = options->sequenceData[m]->frameData[k]->frameDelay & 0xff;
+            KBNAContents[j + (k * 8) + 5] = options->sequenceData[m]->frameData[k]->frameDelay >> 8;
+            KBNAContents[j + (k * 8) + 6] = 0xEF;
+            KBNAContents[j + (k * 8) + 7] = 0xBE;
+
+            switch(options->sequenceData[m]->dataType)
+            {
+                case 0:
+                    dataOffset += 0x02;
+                    break;
+                case 1:
+                    dataOffset += 0x10;
+                    break;
+                case 2:
+                    dataOffset += 0x08;
+                    break;
+            }
+        }
+        j += options->sequenceData[m]->frameCount * 8;
+    }
+
+    int resultPointer = j;
+    for (int l = 0; l < options->sequenceCount; l++)
+    {
+        for (int k = 0; k < options->sequenceData[l]->frameCount; k++) 
+        {
+            switch(options->sequenceData[l]->dataType)
+            {
+                case 0:
+                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->index & 0xff;
+                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->index >> 8;
+                    resultPointer += 0x02;
+                    break;
+                case 1:
+                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.index & 0xff;
+                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.index >> 8;
+                    KBNAContents[resultPointer + 2] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.rotation & 0xff;
+                    KBNAContents[resultPointer + 3] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.rotation >> 8;
+                    KBNAContents[resultPointer + 4] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX & 0xff;
+                    KBNAContents[resultPointer + 5] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 8) & 0xff;
+                    KBNAContents[resultPointer + 6] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 16) & 0xff;
+                    KBNAContents[resultPointer + 7] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 24;
+                    KBNAContents[resultPointer + 8] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY & 0xff;
+                    KBNAContents[resultPointer + 9] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 8) & 0xff;
+                    KBNAContents[resultPointer + 10] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 16) & 0xff;
+                    KBNAContents[resultPointer + 11] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 24;
+                    KBNAContents[resultPointer + 12] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionX & 0xff;
+                    KBNAContents[resultPointer + 13] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionX >> 8;
+                    KBNAContents[resultPointer + 14] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionY & 0xff;
+                    KBNAContents[resultPointer + 15] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionY >> 8;
+                    resultPointer += 0x10;
+                    break;
+
+                case 2:
+                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->dataT.index & 0xff;
+                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->dataT.index >> 8;
+                    KBNAContents[resultPointer + 2] = 0xEF;
+                    KBNAContents[resultPointer + 3] = 0xBE;
+                    KBNAContents[resultPointer + 4] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionX & 0xff;
+                    KBNAContents[resultPointer + 5] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionX >> 8;
+                    KBNAContents[resultPointer + 6] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionY & 0xff;
+                    KBNAContents[resultPointer + 7] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionY >> 8;
+                    resultPointer += 0x8;
+                    break;
+            }
+        }
+    }
+    KBNAContents[resultPointer] = 0xCC;
+    KBNAContents[resultPointer + 1] = 0xCC;
 
     fwrite(KBNAContents, 1, contentsSize, fp);
 
