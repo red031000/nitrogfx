@@ -419,14 +419,6 @@ void ReadNtrFont(char *path, struct Image *image, struct NtrFontMetadata *metada
     metadata->glyphWidth = buffer[0x0E];
     metadata->glyphHeight = buffer[0x0F];
 
-    printf("header size:         %lu\n", metadata->size);
-    printf("width table offset:  %lu\n", metadata->widthTableOffset);
-    printf("num glyphs:          %lu\n", metadata->numGlyphs);
-    printf("max width:           %hhu\n", metadata->maxWidth);
-    printf("max height:          %hhu\n", metadata->maxHeight);
-    printf("glyph width:         %hhu\n", metadata->glyphWidth);
-    printf("glyph height:        %hhu\n", metadata->glyphHeight);
-
     int numRows = (metadata->numGlyphs + 15) / 16; // Round up to next multiple of 16.
 
     metadata->glyphWidthTable = malloc(metadata->numGlyphs);
