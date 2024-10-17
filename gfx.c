@@ -912,6 +912,9 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
 {
     options->cellCount = data[blockOffset + 0x8] | (data[blockOffset + 0x9] << 8);
     options->extended = data[blockOffset + 0xA] == 1;
+
+    int partitionOffset = (data[blockOffset + 0x14] | data[blockOffset + 0x15] << 8);
+    options->partitionEnabled = partitionOffset > 0;
     /*if (!options->extended)
     {
         //in theory not extended should be implemented, however not 100% sure
@@ -1002,6 +1005,20 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
         }
     }
 
+    if (options->partitionEnabled)
+    {
+        // FindNitroDataBlock returns a block size less 0x10 for header, but this requires the real block size
+        int realBlockSize = blockSize + 0x10;
+        offset = blockOffset + 0x08 + partitionOffset;
+        options->partitionData = malloc(realBlockSize - offset);
+        int index = 0;
+        while (offset < realBlockSize) 
+        {
+            options->partitionData[index++] = (data[offset] | data[offset + 1] << 8 | data[offset + 2] << 16 | data[offset + 3] << 24);
+            offset += 4;
+        }
+        options->partitionCount = index;
+    }
 }
 
 void ReadNtrCell_LABL(unsigned char * restrict data, unsigned int blockOffset, unsigned int blockSize, struct JsonToCellOptions *options)
@@ -1078,6 +1095,8 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
 
     // KBEC base size: 0x08 per bank, or 0x10 per extended bank
     unsigned int kbecSize = options->cellCount * (options->extended ? 0x10 : 0x08);
+    // additional 0x04 for each partition.
+    kbecSize += options->partitionCount * 0x04;
     // add 0x06 for number of OAMs - can be more than 1
     for (int idx = 0; idx < options->cellCount * iterNum; idx += iterNum)
     {
@@ -1113,6 +1132,16 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     KBECHeader[5] = (kbecSize + 0x20) >> 8; //unlikely to be more than 16 bits, but there are 32 allocated, change if necessary
 
     KBECHeader[16] = (options->mappingType & 0xFF); //not possible to be more than 8 bits, though 32 are allocated
+
+    // offset to partition data within KBEC section (offset from KBEC start + 0x08)
+    if (options->partitionEnabled) 
+    {
+        unsigned int partitionStart = (kbecSize + 0x20) - (options->partitionCount * 0x04) - 0x08;
+        KBECHeader[20] = partitionStart & 0xFF;
+        KBECHeader[21] = (partitionStart >> 8) & 0xFF;
+        KBECHeader[22] = (partitionStart >> 16) & 0xFF;
+        KBECHeader[23] = (partitionStart >> 24) & 0xFF;
+    }
 
     fwrite(KBECHeader, 1, 0x20, fp);
 
@@ -1208,6 +1237,16 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
 
             offset += 6;
         }
+    }
+
+    // partition data
+    for (int idx = 0; idx < options->partitionCount; idx++) 
+    {
+        KBECContents[offset] = options->partitionData[idx] & 0xFF;
+        KBECContents[offset + 1] = (options->partitionData[idx] >> 8) & 0xFF;
+        KBECContents[offset + 2] = (options->partitionData[idx] >> 16) & 0xFF;
+        KBECContents[offset + 3] = (options->partitionData[idx] >> 24) & 0xFF;
+        offset += 4;
     }
 
     fwrite(KBECContents, 1, kbecSize, fp);

@@ -100,9 +100,12 @@ struct Cell {
 struct JsonToCellOptions {
     bool labelEnabled;
     bool extended;
+    bool partitionEnabled;
     int mappingType;
     int cellCount;
     struct Cell **cells;
+    int *partitionData;
+    int partitionCount;
     char **labels;
     int labelCount;
 };

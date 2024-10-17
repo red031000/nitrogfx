@@ -47,11 +47,13 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
     }
 
     cJSON *labelBool = cJSON_GetObjectItemCaseSensitive(json, "labelEnabled");
+    cJSON *partitionBool = cJSON_GetObjectItemCaseSensitive(json, "partitionEnabled");
     cJSON *extended = cJSON_GetObjectItemCaseSensitive(json, "extended");
     cJSON *cellCount = cJSON_GetObjectItemCaseSensitive(json, "cellCount");
     cJSON *mappingType = cJSON_GetObjectItemCaseSensitive(json, "mappingType");
 
     options->labelEnabled = GetBool(labelBool);
+    options->partitionEnabled = GetBool(partitionBool);
     options->extended = GetBool(extended);
     options->cellCount = GetInt(cellCount);
     options->mappingType = GetInt(mappingType);
@@ -74,6 +76,23 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
             options->labels[j] = malloc(strlen(labelString) + 1);
             strcpy(options->labels[j], labelString);
             j++;
+        }
+    }
+
+    if (options->partitionEnabled) 
+    {
+        cJSON *partitionCount = cJSON_GetObjectItemCaseSensitive(json, "partitionCount");
+        options->partitionCount = GetInt(partitionCount);
+        options->partitionData = malloc(sizeof(int) * options->partitionCount);
+
+        cJSON *partitions = cJSON_GetObjectItemCaseSensitive(json, "partitions");
+        cJSON *partition = NULL;
+
+        int j = 0;
+        cJSON_ArrayForEach(partition, partitions)
+        {
+            int partitionValue = GetInt(partition);
+            options->partitionData[j++] = partitionValue;
         }
     }
 
@@ -195,6 +214,7 @@ char *GetNCERJson(struct JsonToCellOptions *options)
 
     cJSON_AddBoolToObject(ncer, "labelEnabled", options->labelEnabled);
     cJSON_AddBoolToObject(ncer, "extended", options->extended);
+    cJSON_AddBoolToObject(ncer, "partitionEnabled", options->partitionEnabled);
     cJSON_AddNumberToObject(ncer, "cellCount", options->cellCount);
     cJSON_AddNumberToObject(ncer, "mappingType", options->mappingType);
     
@@ -261,6 +281,13 @@ char *GetNCERJson(struct JsonToCellOptions *options)
         cJSON *labels = cJSON_CreateStringArray((const char * const*)options->labels, options->labelCount);
         cJSON_AddItemToObject(ncer, "labels", labels);
         cJSON_AddNumberToObject(ncer, "labelCount", options->labelCount);
+    }
+
+    if (options->partitionEnabled) 
+    {
+        cJSON *partitions = cJSON_CreateIntArray(options->partitionData, options->partitionCount);
+        cJSON_AddItemToObject(ncer, "partitions", partitions);
+        cJSON_AddNumberToObject(ncer, "partitionCount", options->partitionCount);
     }
 
     char *jsonString = cJSON_Print(ncer);
