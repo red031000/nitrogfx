@@ -523,13 +523,72 @@ struct JsonToAnimationOptions_New *ParseNANRJson_New(char *path)
 
     cJSON *sequenceCount = cJSON_GetObjectItemCaseSensitive(json, "sequenceCount");
     cJSON *frameCount = cJSON_GetObjectItemCaseSensitive(json, "frameCount");
+    cJSON *resultCount = cJSON_GetObjectItemCaseSensitive(json, "resultCount");
 
     options->sequenceCount = GetInt(sequenceCount);
     options->frameCount = GetInt(frameCount);
+    options->resultCount = GetInt(resultCount);
 
     options->sequenceData = malloc(sizeof(struct SequenceData *) * options->sequenceCount);
+    options->animationResults = malloc(sizeof(struct AnimationResults_New *) * options->resultCount);
 
     int i;
+    for (i = 0; i < options->resultCount; i++)
+    {
+        options->animationResults[i] = malloc(sizeof(struct AnimationResults_New));
+    }
+
+    cJSON *animationResult = NULL;
+    cJSON *animationResults = cJSON_GetObjectItemCaseSensitive(json, "animationResults");
+
+    i = 0;
+    cJSON_ArrayForEach(animationResult, animationResults)
+    {
+        cJSON *dataType = cJSON_GetObjectItemCaseSensitive(json, "dataType");
+        options->animationResults[i]->dataType = GetInt(dataType);
+
+        switch (options->animationResults[i]->dataType)
+        {
+            case 0: { //index
+                cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
+                options->animationResults[i]->index = GetInt(index);
+                break;
+            }
+
+            case 1: { //SRT
+                cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
+                cJSON *rotation = cJSON_GetObjectItemCaseSensitive(animationResult, "rotation");
+                cJSON *scaleX = cJSON_GetObjectItemCaseSensitive(animationResult, "scaleX");
+                cJSON *scaleY = cJSON_GetObjectItemCaseSensitive(animationResult, "scaleY");
+                cJSON *positionX = cJSON_GetObjectItemCaseSensitive(animationResult, "positionX");
+                cJSON *positionY = cJSON_GetObjectItemCaseSensitive(animationResult, "positionY");
+
+                options->animationResults[i]->dataSrt.index = GetInt(index);
+                options->animationResults[i]->dataSrt.rotation = GetInt(rotation);
+                options->animationResults[i]->dataSrt.scaleX = GetInt(scaleX);
+                options->animationResults[i]->dataSrt.scaleY = GetInt(scaleY);
+                options->animationResults[i]->dataSrt.positionX = GetInt(positionX);
+                options->animationResults[i]->dataSrt.positionY = GetInt(positionY);
+                break;
+            }
+
+            case 2: { //T
+                cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
+                //cJSON *rotation = cJSON_GetObjectItemCaseSensitive(animationResult, "rotation");
+                cJSON *positionX = cJSON_GetObjectItemCaseSensitive(animationResult, "positionX");
+                cJSON *positionY = cJSON_GetObjectItemCaseSensitive(animationResult, "positionY");
+
+                options->animationResults[i]->dataT.index = GetInt(index);
+                //options->animationResults[i]->dataSrt.rotation = GetInt(rotation);
+                options->animationResults[i]->dataT.positionX = GetInt(positionX);
+                options->animationResults[i]->dataT.positionY = GetInt(positionY);
+                break;
+            }
+        }
+
+        i++;
+    }
+
     for (i = 0; i < options->sequenceCount; i++)
     {
         options->sequenceData[i] = malloc(sizeof(struct SequenceData));
@@ -573,49 +632,10 @@ struct JsonToAnimationOptions_New *ParseNANRJson_New(char *path)
                 FATAL_ERROR("Sequence frame count is incorrect.\n");
 
             cJSON *frameDelay = cJSON_GetObjectItemCaseSensitive(frame, "frameDelay");
-            cJSON *animationResult = cJSON_GetObjectItemCaseSensitive(frame, "animationResult");
+            cJSON *resultId = cJSON_GetObjectItemCaseSensitive(frame, "resultId");
 
             options->sequenceData[i]->frameData[j]->frameDelay = GetInt(frameDelay);
-            options->sequenceData[i]->frameData[j]->resultData = malloc(sizeof(struct AnimationResults));
-
-            switch (options->sequenceData[i]->dataType)
-            {
-                case 0: { //index
-                    cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
-                    options->sequenceData[i]->frameData[j]->resultData->index = GetInt(index);
-                    break;
-                }
-
-                case 1: { //SRT
-                    cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
-                    cJSON *rotation = cJSON_GetObjectItemCaseSensitive(animationResult, "rotation");
-                    cJSON *scaleX = cJSON_GetObjectItemCaseSensitive(animationResult, "scaleX");
-                    cJSON *scaleY = cJSON_GetObjectItemCaseSensitive(animationResult, "scaleY");
-                    cJSON *positionX = cJSON_GetObjectItemCaseSensitive(animationResult, "positionX");
-                    cJSON *positionY = cJSON_GetObjectItemCaseSensitive(animationResult, "positionY");
-
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.index = GetInt(index);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.rotation = GetInt(rotation);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleX = GetInt(scaleX);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleY = GetInt(scaleY);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionX = GetInt(positionX);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionY = GetInt(positionY);
-                    break;
-                }
-
-                case 2: { //T
-                    cJSON *index = cJSON_GetObjectItemCaseSensitive(animationResult, "index");
-                    //cJSON *rotation = cJSON_GetObjectItemCaseSensitive(animationResult, "rotation");
-                    cJSON *positionX = cJSON_GetObjectItemCaseSensitive(animationResult, "positionX");
-                    cJSON *positionY = cJSON_GetObjectItemCaseSensitive(animationResult, "positionY");
-
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.index = GetInt(index);
-                    //options->sequenceData[i]->frameData[j]->resultData->dataSrt.rotation = GetInt(rotation);
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionX = GetInt(positionX);
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionY = GetInt(positionY);
-                    break;
-                }
-            }
+            options->sequenceData[i]->frameData[j]->resultId = GetInt(resultId);
 
             j++;
         }
@@ -736,6 +756,7 @@ char *GetNANRJson_New(struct JsonToAnimationOptions_New *options)
     cJSON_AddBoolToObject(nanr, "labelEnabled", options->labelEnabled);
     cJSON_AddNumberToObject(nanr, "sequenceCount", options->sequenceCount);
     cJSON_AddNumberToObject(nanr, "frameCount", options->frameCount);
+    cJSON_AddNumberToObject(nanr, "resultCount", options->resultCount);
 
     cJSON *sequences = cJSON_AddArrayToObject(nanr, "sequences");
 
@@ -754,36 +775,42 @@ char *GetNANRJson_New(struct JsonToAnimationOptions_New *options)
         {
             cJSON *frame = cJSON_CreateObject();
             cJSON_AddNumberToObject(frame, "frameDelay", options->sequenceData[i]->frameData[j]->frameDelay);
-
-            cJSON *animationResult = cJSON_AddObjectToObject(frame, "animationResult");
-            switch(options->sequenceData[i]->dataType)
-            {
-                case 0: //index
-                    cJSON_AddNumberToObject(animationResult, "index", options->sequenceData[i]->frameData[j]->resultData->index);
-                    break;
-                
-                case 1: //SRT
-                    cJSON_AddNumberToObject(animationResult, "index", options->sequenceData[i]->frameData[j]->resultData->dataSrt.index);
-                    cJSON_AddNumberToObject(animationResult, "rotation", options->sequenceData[i]->frameData[j]->resultData->dataSrt.rotation);
-                    cJSON_AddNumberToObject(animationResult, "scaleX", options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleX);
-                    cJSON_AddNumberToObject(animationResult, "scaleY", options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleY);
-                    cJSON_AddNumberToObject(animationResult, "positionX", options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionX);
-                    cJSON_AddNumberToObject(animationResult, "positionY", options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionY);
-                    break;
-
-                case 2: //T
-                    cJSON_AddNumberToObject(animationResult, "index", options->sequenceData[i]->frameData[j]->resultData->dataT.index);
-                    cJSON_AddNumberToObject(animationResult, "positionX", options->sequenceData[i]->frameData[j]->resultData->dataT.positionX);
-                    cJSON_AddNumberToObject(animationResult, "positionY", options->sequenceData[i]->frameData[j]->resultData->dataT.positionY);
-                    break;
-            }
-
+            cJSON_AddNumberToObject(frame, "resultId", options->sequenceData[i]->frameData[j]->resultId);
             cJSON_AddItemToArray(frameData, frame);
         }
 
         cJSON_AddItemToArray(sequences, sequence);
     }
 
+    cJSON *animationResults = cJSON_AddArrayToObject(nanr, "animationResults");
+    for (int i = 0; i < options->resultCount; i++)
+    {
+        cJSON *animationResult = cJSON_CreateObject();
+        switch(options->animationResults[i]->dataType)
+        {
+            case 0: //index
+                cJSON_AddNumberToObject(animationResult, "index", options->animationResults[i]->index);
+                break;
+            
+            case 1: //SRT
+                cJSON_AddNumberToObject(animationResult, "index", options->animationResults[i]->dataSrt.index);
+                cJSON_AddNumberToObject(animationResult, "rotation", options->animationResults[i]->dataSrt.rotation);
+                cJSON_AddNumberToObject(animationResult, "scaleX", options->animationResults[i]->dataSrt.scaleX);
+                cJSON_AddNumberToObject(animationResult, "scaleY", options->animationResults[i]->dataSrt.scaleY);
+                cJSON_AddNumberToObject(animationResult, "positionX", options->animationResults[i]->dataSrt.positionX);
+                cJSON_AddNumberToObject(animationResult, "positionY", options->animationResults[i]->dataSrt.positionY);
+                break;
+
+            case 2: //T
+                cJSON_AddNumberToObject(animationResult, "index", options->animationResults[i]->dataT.index);
+                cJSON_AddNumberToObject(animationResult, "positionX", options->animationResults[i]->dataT.positionX);
+                cJSON_AddNumberToObject(animationResult, "positionY", options->animationResults[i]->dataT.positionY);
+                break;
+        }
+
+        cJSON_AddItemToArray(animationResults, animationResult);
+    }
+    
     if (options->labelEnabled)
     {
         cJSON *labels = cJSON_CreateStringArray((const char * const*)options->labels, options->labelCount);
@@ -856,7 +883,7 @@ void FreeNANRAnimation_New(struct JsonToAnimationOptions_New *options)
     {
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
-            free(options->sequenceData[i]->frameData[j]->resultData);
+            free(options->animationResults[i]);
             free(options->sequenceData[i]->frameData[j]);
         }
         free(options->sequenceData[i]->frameData);

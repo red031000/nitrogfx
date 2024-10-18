@@ -1515,48 +1515,76 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
         }
     }
 
+    int maxNumResults = 0;
     for (int i = 0; i < options->sequenceCount; i++)
     {
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
             int frameOffset = offset + options->sequenceData[i]->headerOffset + j * 0x8;
-            options->sequenceData[i]->frameData[j]->dataOffset = data[frameOffset] | (data[frameOffset + 1] << 8) | (data[frameOffset + 2] << 16) | (data[frameOffset + 3] << 24);
+            options->sequenceData[i]->frameData[j]->resultId = data[frameOffset] | (data[frameOffset + 1] << 8) | (data[frameOffset + 2] << 16) | (data[frameOffset + 3] << 24);
             options->sequenceData[i]->frameData[j]->frameDelay = data[frameOffset + 4] | (data[frameOffset + 5] << 8);
-            options->sequenceData[i]->frameData[j]->resultData = malloc(sizeof(struct AnimationResults));
+            maxNumResults++;
             //0xBEEF
         }
     }
 
+    // allocate enough space for all frames to have a unique result
+    options->animationResults = malloc(sizeof(struct AnimationResults_New *) * maxNumResults);
+    for (int i = 0; i < maxNumResults; i++) 
+    {
+        options->animationResults[i] = malloc(sizeof(struct AnimationResults_New));
+        options->animationResults[i]->resultId = -1;
+    }
+    options->resultCount = 0;
+
+    // populate the result details
     offset = 0x18 + (data[0x24] | (data[0x25] << 8) | (data[0x26] << 16) | (data[0x27] << 24)); //start of animation results
     int labelOffset = offset;
     for (int i = 0; i < options->sequenceCount; i++)
     {
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
-            int dataOffset = offset + options->sequenceData[i]->frameData[j]->dataOffset;
-            switch (options->sequenceData[i]->dataType) 
+            // check if this result ID has already been created
+            // if not, create it and store the result data
+            for (int subindex = 0; subindex < maxNumResults; subindex++) 
             {
-                case 0: //index
-                    options->sequenceData[i]->frameData[j]->resultData->index = data[dataOffset] | (data[dataOffset + 1] << 8);
-                    labelOffset += 0x02;
+                if (options->animationResults[subindex]->resultId == options->sequenceData[i]->frameData[j]->resultId)
+                {
                     break;
+                }
+                if (options->animationResults[subindex]->resultId == -1)
+                {
+                    options->animationResults[subindex]->resultId = options->sequenceData[i]->frameData[j]->resultId;
+                    options->animationResults[subindex]->dataType = options->sequenceData[i]->dataType;
 
-                case 1: //SRT
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.index = data[dataOffset] | (data[dataOffset + 1] << 8);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.rotation = data[dataOffset + 2] | (data[dataOffset + 3] << 8);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleX = data[dataOffset + 4] | (data[dataOffset + 5] << 8) | (data[dataOffset + 6] << 16) | (data[dataOffset + 7] << 24);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.scaleY = data[dataOffset + 8] | (data[dataOffset + 9] << 8) | (data[dataOffset + 10] << 16) | (data[dataOffset + 11] << 24);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionX = data[dataOffset + 12] | (data[dataOffset + 13] << 8);
-                    options->sequenceData[i]->frameData[j]->resultData->dataSrt.positionY = data[dataOffset + 14] | (data[dataOffset + 15] << 8);
-                    labelOffset += 0x10;
-                    break;
+                    int dataOffset = offset + options->sequenceData[i]->frameData[j]->resultId;
+                    switch (options->sequenceData[i]->dataType) 
+                    {
+                        case 0: //index
+                            options->animationResults[subindex]->index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                            labelOffset += 0x02;
+                            break;
 
-                case 2: //T
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.index = data[dataOffset] | (data[dataOffset + 1] << 8);
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionX = data[dataOffset + 4] | (data[dataOffset + 5] << 8);
-                    options->sequenceData[i]->frameData[j]->resultData->dataT.positionY = data[dataOffset + 6] | (data[dataOffset + 7] << 8);
-                    labelOffset += 0x08;
+                        case 1: //SRT
+                            options->animationResults[subindex]->dataSrt.index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                            options->animationResults[subindex]->dataSrt.rotation = data[dataOffset + 2] | (data[dataOffset + 3] << 8);
+                            options->animationResults[subindex]->dataSrt.scaleX = data[dataOffset + 4] | (data[dataOffset + 5] << 8) | (data[dataOffset + 6] << 16) | (data[dataOffset + 7] << 24);
+                            options->animationResults[subindex]->dataSrt.scaleY = data[dataOffset + 8] | (data[dataOffset + 9] << 8) | (data[dataOffset + 10] << 16) | (data[dataOffset + 11] << 24);
+                            options->animationResults[subindex]->dataSrt.positionX = data[dataOffset + 12] | (data[dataOffset + 13] << 8);
+                            options->animationResults[subindex]->dataSrt.positionY = data[dataOffset + 14] | (data[dataOffset + 15] << 8);
+                            labelOffset += 0x10;
+                            break;
+
+                        case 2: //T
+                            options->animationResults[subindex]->dataT.index = data[dataOffset] | (data[dataOffset + 1] << 8);
+                            options->animationResults[subindex]->dataT.positionX = data[dataOffset + 4] | (data[dataOffset + 5] << 8);
+                            options->animationResults[subindex]->dataT.positionY = data[dataOffset + 6] | (data[dataOffset + 7] << 8);
+                            labelOffset += 0x08;
+                            break;
+                    }
+                    options->resultCount++;
                     break;
+                }
             }
         }
     }
@@ -1565,7 +1593,8 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
     {
         options->labelCount = options->sequenceCount; //*should* be the same
         options->labels = malloc(sizeof(char *) * options->labelCount);
-        labelOffset += 0x02 + 0x0C; // 0x02 for extra 0xCCCC, 0x0C for LABL header
+        labelOffset += 0x8 + options->labelCount * 0x4; // skip to label data
+        if (labelOffset % 4 == 2) labelOffset += 0x02; // for extra 0xCCCC padding?
         for (int i = 0; i < options->labelCount; i++)
         {
             options->labels[i] = malloc(strlen((char *)data + labelOffset) + 1);
@@ -1805,16 +1834,17 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
 
     unsigned int totalSize = 0x20 + options->sequenceCount * 0x10 + options->frameCount * 0x8;
 
-    for (int i = 0; i < options->sequenceCount; i++)
+    for (int i = 0; i < options->resultCount; i++)
     {
-        if (options->sequenceData[i]->dataType == 0)
-            totalSize += 0x02 * options->sequenceData[i]->frameCount;
-        else if (options->sequenceData[i]->dataType == 1)
-            totalSize += 0x10 * options->sequenceData[i]->frameCount;
-        else if (options->sequenceData[i]->dataType == 2)
-            totalSize += 0x08 * options->sequenceData[i]->frameCount;
+        if (options->animationResults[i]->dataType == 0)
+            totalSize += 0x02;
+        else if (options->animationResults[i]->dataType == 1)
+            totalSize += 0x10;
+        else if (options->animationResults[i]->dataType == 2)
+            totalSize += 0x08;
     }
-    totalSize += 0x02; // account for 0xCCCC
+    if (totalSize % 4 == 2)
+        totalSize += 0x02; // account for 0xCCCC
 
     unsigned int KNBASize = totalSize;
 
@@ -1890,84 +1920,70 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
 
     int j;
     int m;
-    int dataOffset = 0;
     for (j = i, m = 0; m < options->sequenceCount; m++)
     {
         for (int k = 0; k < options->sequenceData[m]->frameCount; k++) 
         {
-            KBNAContents[j + (k * 8)] = dataOffset & 0xff;
-            KBNAContents[j + (k * 8) + 1] = (dataOffset >> 8) & 0xff;
-            KBNAContents[j + (k * 8) + 2] = (dataOffset >> 16) & 0xff;
-            KBNAContents[j + (k * 8) + 3] = dataOffset >> 24;
+            KBNAContents[j + (k * 8)] = options->sequenceData[m]->frameData[k]->resultId & 0xff;
+            KBNAContents[j + (k * 8) + 1] = (options->sequenceData[m]->frameData[k]->resultId >> 8) & 0xff;
+            KBNAContents[j + (k * 8) + 2] = (options->sequenceData[m]->frameData[k]->resultId >> 16) & 0xff;
+            KBNAContents[j + (k * 8) + 3] = options->sequenceData[m]->frameData[k]->resultId >> 24;
             KBNAContents[j + (k * 8) + 4] = options->sequenceData[m]->frameData[k]->frameDelay & 0xff;
             KBNAContents[j + (k * 8) + 5] = options->sequenceData[m]->frameData[k]->frameDelay >> 8;
             KBNAContents[j + (k * 8) + 6] = 0xEF;
             KBNAContents[j + (k * 8) + 7] = 0xBE;
-
-            switch(options->sequenceData[m]->dataType)
-            {
-                case 0:
-                    dataOffset += 0x02;
-                    break;
-                case 1:
-                    dataOffset += 0x10;
-                    break;
-                case 2:
-                    dataOffset += 0x08;
-                    break;
-            }
         }
         j += options->sequenceData[m]->frameCount * 8;
     }
 
     int resultPointer = j;
-    for (int l = 0; l < options->sequenceCount; l++)
+    for (int l = 0; l < options->resultCount; l++)
     {
-        for (int k = 0; k < options->sequenceData[l]->frameCount; k++) 
+        switch(options->animationResults[l]->dataType)
         {
-            switch(options->sequenceData[l]->dataType)
-            {
-                case 0:
-                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->index & 0xff;
-                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->index >> 8;
-                    resultPointer += 0x02;
-                    break;
-                case 1:
-                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.index & 0xff;
-                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.index >> 8;
-                    KBNAContents[resultPointer + 2] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.rotation & 0xff;
-                    KBNAContents[resultPointer + 3] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.rotation >> 8;
-                    KBNAContents[resultPointer + 4] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX & 0xff;
-                    KBNAContents[resultPointer + 5] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 8) & 0xff;
-                    KBNAContents[resultPointer + 6] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 16) & 0xff;
-                    KBNAContents[resultPointer + 7] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleX >> 24;
-                    KBNAContents[resultPointer + 8] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY & 0xff;
-                    KBNAContents[resultPointer + 9] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 8) & 0xff;
-                    KBNAContents[resultPointer + 10] = (options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 16) & 0xff;
-                    KBNAContents[resultPointer + 11] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.scaleY >> 24;
-                    KBNAContents[resultPointer + 12] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionX & 0xff;
-                    KBNAContents[resultPointer + 13] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionX >> 8;
-                    KBNAContents[resultPointer + 14] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionY & 0xff;
-                    KBNAContents[resultPointer + 15] = options->sequenceData[l]->frameData[k]->resultData->dataSrt.positionY >> 8;
-                    resultPointer += 0x10;
-                    break;
+            case 0:
+                KBNAContents[resultPointer] = options->animationResults[l]->index & 0xff;
+                KBNAContents[resultPointer + 1] = options->animationResults[l]->index >> 8;
+                resultPointer += 0x02;
+                break;
+            case 1:
+                KBNAContents[resultPointer] = options->animationResults[l]->dataSrt.index & 0xff;
+                KBNAContents[resultPointer + 1] = options->animationResults[l]->dataSrt.index >> 8;
+                KBNAContents[resultPointer + 2] = options->animationResults[l]->dataSrt.rotation & 0xff;
+                KBNAContents[resultPointer + 3] = options->animationResults[l]->dataSrt.rotation >> 8;
+                KBNAContents[resultPointer + 4] = options->animationResults[l]->dataSrt.scaleX & 0xff;
+                KBNAContents[resultPointer + 5] = (options->animationResults[l]->dataSrt.scaleX >> 8) & 0xff;
+                KBNAContents[resultPointer + 6] = (options->animationResults[l]->dataSrt.scaleX >> 16) & 0xff;
+                KBNAContents[resultPointer + 7] = options->animationResults[l]->dataSrt.scaleX >> 24;
+                KBNAContents[resultPointer + 8] = options->animationResults[l]->dataSrt.scaleY & 0xff;
+                KBNAContents[resultPointer + 9] = (options->animationResults[l]->dataSrt.scaleY >> 8) & 0xff;
+                KBNAContents[resultPointer + 10] = (options->animationResults[l]->dataSrt.scaleY >> 16) & 0xff;
+                KBNAContents[resultPointer + 11] = options->animationResults[l]->dataSrt.scaleY >> 24;
+                KBNAContents[resultPointer + 12] = options->animationResults[l]->dataSrt.positionX & 0xff;
+                KBNAContents[resultPointer + 13] = options->animationResults[l]->dataSrt.positionX >> 8;
+                KBNAContents[resultPointer + 14] = options->animationResults[l]->dataSrt.positionY & 0xff;
+                KBNAContents[resultPointer + 15] = options->animationResults[l]->dataSrt.positionY >> 8;
+                resultPointer += 0x10;
+                break;
 
-                case 2:
-                    KBNAContents[resultPointer] = options->sequenceData[l]->frameData[k]->resultData->dataT.index & 0xff;
-                    KBNAContents[resultPointer + 1] = options->sequenceData[l]->frameData[k]->resultData->dataT.index >> 8;
-                    KBNAContents[resultPointer + 2] = 0xEF;
-                    KBNAContents[resultPointer + 3] = 0xBE;
-                    KBNAContents[resultPointer + 4] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionX & 0xff;
-                    KBNAContents[resultPointer + 5] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionX >> 8;
-                    KBNAContents[resultPointer + 6] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionY & 0xff;
-                    KBNAContents[resultPointer + 7] = options->sequenceData[l]->frameData[k]->resultData->dataT.positionY >> 8;
-                    resultPointer += 0x8;
-                    break;
-            }
+            case 2:
+                KBNAContents[resultPointer] = options->animationResults[l]->dataT.index & 0xff;
+                KBNAContents[resultPointer + 1] = options->animationResults[l]->dataT.index >> 8;
+                KBNAContents[resultPointer + 2] = 0xEF;
+                KBNAContents[resultPointer + 3] = 0xBE;
+                KBNAContents[resultPointer + 4] = options->animationResults[l]->dataT.positionX & 0xff;
+                KBNAContents[resultPointer + 5] = options->animationResults[l]->dataT.positionX >> 8;
+                KBNAContents[resultPointer + 6] = options->animationResults[l]->dataT.positionY & 0xff;
+                KBNAContents[resultPointer + 7] = options->animationResults[l]->dataT.positionY >> 8;
+                resultPointer += 0x8;
+                break;
         }
     }
-    KBNAContents[resultPointer] = 0xCC;
-    KBNAContents[resultPointer + 1] = 0xCC;
+    if (resultPointer % 4 == 2) 
+    {
+        KBNAContents[resultPointer] = 0xCC;
+        KBNAContents[resultPointer + 1] = 0xCC;
+    }
 
     fwrite(KBNAContents, 1, contentsSize, fp);
 
