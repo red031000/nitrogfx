@@ -707,7 +707,6 @@ char *GetNANRJson(struct JsonToAnimationOptions *options)
     for (int i = 0; i < options->resultCount; i++)
     {
         cJSON *animationResult = cJSON_CreateObject();
-        cJSON_AddNumberToObject(animationResult, "dataType", options->animationResults[i]->dataType);
         cJSON_AddNumberToObject(animationResult, "resultType", options->animationResults[i]->resultType);
 
         switch (options->animationResults[i]->resultType)
@@ -787,6 +786,7 @@ char *GetNANRJson_New(struct JsonToAnimationOptions_New *options)
     for (int i = 0; i < options->resultCount; i++)
     {
         cJSON *animationResult = cJSON_CreateObject();
+        cJSON_AddNumberToObject(animationResult, "dataType", options->animationResults[i]->dataType);
         switch(options->animationResults[i]->dataType)
         {
             case 0: //index
