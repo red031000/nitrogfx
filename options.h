@@ -131,6 +131,7 @@ struct SequenceData {
 
 struct FrameData_New {
     short frameDelay;
+    int dataOffset;
     int resultId;
 };
 
@@ -170,7 +171,7 @@ struct AnimationResults {
 };
 
 struct AnimationResults_New {
-    int resultId;
+    int dataOffset;
     int dataType;
     union {
         short index;

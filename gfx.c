@@ -1521,7 +1521,7 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
             int frameOffset = offset + options->sequenceData[i]->headerOffset + j * 0x8;
-            options->sequenceData[i]->frameData[j]->resultId = data[frameOffset] | (data[frameOffset + 1] << 8) | (data[frameOffset + 2] << 16) | (data[frameOffset + 3] << 24);
+            options->sequenceData[i]->frameData[j]->dataOffset = data[frameOffset] | (data[frameOffset + 1] << 8) | (data[frameOffset + 2] << 16) | (data[frameOffset + 3] << 24);
             options->sequenceData[i]->frameData[j]->frameDelay = data[frameOffset + 4] | (data[frameOffset + 5] << 8);
             maxNumResults++;
             //0xBEEF
@@ -1533,7 +1533,7 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
     for (int i = 0; i < maxNumResults; i++) 
     {
         options->animationResults[i] = malloc(sizeof(struct AnimationResults_New));
-        options->animationResults[i]->resultId = -1;
+        options->animationResults[i]->dataOffset = -1;
     }
     options->resultCount = 0;
 
@@ -1548,16 +1548,18 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
             // if not, create it and store the result data
             for (int subindex = 0; subindex < maxNumResults; subindex++) 
             {
-                if (options->animationResults[subindex]->resultId == options->sequenceData[i]->frameData[j]->resultId)
+                if (options->animationResults[subindex]->dataOffset == options->sequenceData[i]->frameData[j]->dataOffset)
                 {
+                    options->sequenceData[i]->frameData[j]->resultId = subindex;
                     break;
                 }
-                if (options->animationResults[subindex]->resultId == -1)
+                if (options->animationResults[subindex]->dataOffset == -1)
                 {
-                    options->animationResults[subindex]->resultId = options->sequenceData[i]->frameData[j]->resultId;
+                    options->sequenceData[i]->frameData[j]->resultId = subindex;
+                    options->animationResults[subindex]->dataOffset = options->sequenceData[i]->frameData[j]->dataOffset;
                     options->animationResults[subindex]->dataType = options->sequenceData[i]->dataType;
 
-                    int dataOffset = offset + options->sequenceData[i]->frameData[j]->resultId;
+                    int dataOffset = offset + options->sequenceData[i]->frameData[j]->dataOffset;
                     switch (options->sequenceData[i]->dataType) 
                     {
                         case 0: //index
@@ -1918,16 +1920,35 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
         framePtrCounter += options->sequenceData[i / 0x10]->frameCount * 8;
     }
 
+    int *resultDataOffsets = malloc(sizeof(int *) * options->resultCount);
+    int currentOffset = 0;
+    for (int r = 0; r < options->resultCount; r++) 
+    {
+        resultDataOffsets[r] = currentOffset;
+        switch(options->animationResults[r]->dataType)
+        {
+            case 0:
+                currentOffset += 0x02;
+                break;
+            case 1:
+                currentOffset += 0x10;
+                break;
+            case 2:
+                currentOffset += 0x08;
+                break;
+        }
+    }
+
     int j;
     int m;
     for (j = i, m = 0; m < options->sequenceCount; m++)
     {
         for (int k = 0; k < options->sequenceData[m]->frameCount; k++) 
         {
-            KBNAContents[j + (k * 8)] = options->sequenceData[m]->frameData[k]->resultId & 0xff;
-            KBNAContents[j + (k * 8) + 1] = (options->sequenceData[m]->frameData[k]->resultId >> 8) & 0xff;
-            KBNAContents[j + (k * 8) + 2] = (options->sequenceData[m]->frameData[k]->resultId >> 16) & 0xff;
-            KBNAContents[j + (k * 8) + 3] = options->sequenceData[m]->frameData[k]->resultId >> 24;
+            KBNAContents[j + (k * 8)] = resultDataOffsets[options->sequenceData[m]->frameData[k]->resultId] & 0xff;
+            KBNAContents[j + (k * 8) + 1] = (resultDataOffsets[options->sequenceData[m]->frameData[k]->resultId] >> 8) & 0xff;
+            KBNAContents[j + (k * 8) + 2] = (resultDataOffsets[options->sequenceData[m]->frameData[k]->resultId] >> 16) & 0xff;
+            KBNAContents[j + (k * 8) + 3] = resultDataOffsets[options->sequenceData[m]->frameData[k]->resultId] >> 24;
             KBNAContents[j + (k * 8) + 4] = options->sequenceData[m]->frameData[k]->frameDelay & 0xff;
             KBNAContents[j + (k * 8) + 5] = options->sequenceData[m]->frameData[k]->frameDelay >> 8;
             KBNAContents[j + (k * 8) + 6] = 0xEF;
@@ -1935,6 +1956,8 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
         }
         j += options->sequenceData[m]->frameCount * 8;
     }
+
+    free(resultDataOffsets);
 
     int resultPointer = j;
     for (int l = 0; l < options->resultCount; l++)
