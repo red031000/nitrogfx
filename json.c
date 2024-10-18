@@ -544,7 +544,7 @@ struct JsonToAnimationOptions_New *ParseNANRJson_New(char *path)
     i = 0;
     cJSON_ArrayForEach(animationResult, animationResults)
     {
-        cJSON *dataType = cJSON_GetObjectItemCaseSensitive(json, "dataType");
+        cJSON *dataType = cJSON_GetObjectItemCaseSensitive(animationResult, "dataType");
         options->animationResults[i]->dataType = GetInt(dataType);
 
         switch (options->animationResults[i]->dataType)
@@ -707,6 +707,7 @@ char *GetNANRJson(struct JsonToAnimationOptions *options)
     for (int i = 0; i < options->resultCount; i++)
     {
         cJSON *animationResult = cJSON_CreateObject();
+        cJSON_AddNumberToObject(animationResult, "dataType", options->animationResults[i]->dataType);
         cJSON_AddNumberToObject(animationResult, "resultType", options->animationResults[i]->resultType);
 
         switch (options->animationResults[i]->resultType)
