@@ -1558,6 +1558,7 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
                     options->sequenceData[i]->frameData[j]->resultId = subindex;
                     options->animationResults[subindex]->dataOffset = options->sequenceData[i]->frameData[j]->dataOffset;
                     options->animationResults[subindex]->dataType = options->sequenceData[i]->dataType;
+                    options->animationResults[subindex]->padded = false;
 
                     int dataOffset = offset + options->sequenceData[i]->frameData[j]->dataOffset;
                     switch (options->sequenceData[i]->dataType) 
@@ -1565,6 +1566,11 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
                         case 0: //index
                             options->animationResults[subindex]->index = data[dataOffset] | (data[dataOffset + 1] << 8);
                             labelOffset += 0x02;
+                            if (data[dataOffset + 2] == 0xCC && data[dataOffset + 3] == 0xCC)
+                            {
+                                options->animationResults[subindex]->padded = true;
+                                labelOffset += 0x02;
+                            }
                             break;
 
                         case 1: //SRT
@@ -1596,7 +1602,6 @@ void ReadNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *options
         options->labelCount = options->sequenceCount; //*should* be the same
         options->labels = malloc(sizeof(char *) * options->labelCount);
         labelOffset += 0x8 + options->labelCount * 0x4; // skip to label data
-        if (labelOffset % 4 == 2) labelOffset += 0x02; // for extra 0xCCCC padding?
         for (int i = 0; i < options->labelCount; i++)
         {
             options->labels[i] = malloc(strlen((char *)data + labelOffset) + 1);
@@ -1844,9 +1849,9 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
             totalSize += 0x10;
         else if (options->animationResults[i]->dataType == 2)
             totalSize += 0x08;
+
+        if (options->animationResults[i]->padded) totalSize += 0x02;
     }
-    if (totalSize % 4 == 2)
-        totalSize += 0x02; // account for 0xCCCC
 
     unsigned int KNBASize = totalSize;
 
@@ -1929,6 +1934,7 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
         {
             case 0:
                 currentOffset += 0x02;
+                if (options->animationResults[r]->padded) currentOffset += 0x02;
                 break;
             case 1:
                 currentOffset += 0x10;
@@ -1967,6 +1973,12 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
             case 0:
                 KBNAContents[resultPointer] = options->animationResults[l]->index & 0xff;
                 KBNAContents[resultPointer + 1] = options->animationResults[l]->index >> 8;
+                if (options->animationResults[l]->padded)
+                {
+                    KBNAContents[resultPointer + 2] = 0xCC;
+                    KBNAContents[resultPointer + 3] = 0xCC;
+                    resultPointer += 0x02;
+                }
                 resultPointer += 0x02;
                 break;
             case 1:
@@ -2001,11 +2013,6 @@ void WriteNtrAnimation_New(char *path, struct JsonToAnimationOptions_New *option
                 resultPointer += 0x8;
                 break;
         }
-    }
-    if (resultPointer % 4 == 2) 
-    {
-        KBNAContents[resultPointer] = 0xCC;
-        KBNAContents[resultPointer + 1] = 0xCC;
     }
 
     fwrite(KBNAContents, 1, contentsSize, fp);

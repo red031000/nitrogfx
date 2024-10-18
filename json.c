@@ -545,7 +545,9 @@ struct JsonToAnimationOptions_New *ParseNANRJson_New(char *path)
     cJSON_ArrayForEach(animationResult, animationResults)
     {
         cJSON *dataType = cJSON_GetObjectItemCaseSensitive(animationResult, "dataType");
+        cJSON *padded = cJSON_GetObjectItemCaseSensitive(animationResult, "padded");
         options->animationResults[i]->dataType = GetInt(dataType);
+        options->animationResults[i]->padded = GetBool(padded);
 
         switch (options->animationResults[i]->dataType)
         {
@@ -787,6 +789,7 @@ char *GetNANRJson_New(struct JsonToAnimationOptions_New *options)
     {
         cJSON *animationResult = cJSON_CreateObject();
         cJSON_AddNumberToObject(animationResult, "dataType", options->animationResults[i]->dataType);
+        cJSON_AddBoolToObject(animationResult, "padded", options->animationResults[i]->padded);
         switch(options->animationResults[i]->dataType)
         {
             case 0: //index
@@ -884,11 +887,14 @@ void FreeNANRAnimation_New(struct JsonToAnimationOptions_New *options)
     {
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
-            free(options->animationResults[i]);
             free(options->sequenceData[i]->frameData[j]);
         }
         free(options->sequenceData[i]->frameData);
         free(options->sequenceData[i]);
+    }
+    for (int i = 0; i < options->resultCount; i++)
+    {
+        free(options->animationResults[i]);
     }
     if (options->labelEnabled)
     {

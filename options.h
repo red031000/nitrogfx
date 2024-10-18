@@ -173,6 +173,7 @@ struct AnimationResults {
 struct AnimationResults_New {
     int dataOffset;
     int dataType;
+    bool padded;
     union {
         short index;
         struct AnimationDataSRT dataSrt;
