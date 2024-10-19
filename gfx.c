@@ -927,7 +927,7 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
     {
         int offset = blockOffset + 0x20 + (i * celSize);
         if (offset + celSize > blockOffset + blockSize) {
-            FATAL_ERROR("corrupted CEBK block");
+            FATAL_ERROR("corrupted CEBK block\n");
         }
         options->cells[i] = malloc(sizeof(struct Cell));
         options->cells[i]->oamCount = data[offset] | (data[offset + 1] << 8);
@@ -1027,7 +1027,7 @@ void ReadNtrCell_LABL(unsigned char * restrict data, unsigned int blockOffset, u
         int offset = textStart + (data[blockOffset + 4 * i + 8] | (data[blockOffset + 4 * i + 9] << 8) | (data[blockOffset + 4 * i + 10] << 16) | (data[blockOffset + 4 * i + 11] << 24));
         if (offset > blockOffset + blockSize)
         {
-            FATAL_ERROR("corrupted LABL block");
+            FATAL_ERROR("corrupted LABL block\n");
         }
         unsigned long slen = strnlen((char *)data + offset, blockSize - offset);
         options->labels[i] = malloc(slen + 1);
