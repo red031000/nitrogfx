@@ -51,6 +51,11 @@ struct NtrToPngOptions {
     bool handleEmpty;
 };
 
+struct CellVramTransferData {
+    int sourceDataOffset;
+    int size;
+};
+
 struct Attr0 {
     int YCoordinate;
     bool Rotation;
@@ -100,12 +105,12 @@ struct Cell {
 struct JsonToCellOptions {
     bool labelEnabled;
     bool extended;
-    bool partitionEnabled;
+    bool vramTransferEnabled;
     int mappingType;
     int cellCount;
     struct Cell **cells;
-    int *partitionData;
-    int partitionCount;
+    int vramTransferMaxSize;
+    struct CellVramTransferData **transferData;
     char **labels;
     int labelCount;
 };

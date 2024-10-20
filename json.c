@@ -47,13 +47,13 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
     }
 
     cJSON *labelBool = cJSON_GetObjectItemCaseSensitive(json, "labelEnabled");
-    cJSON *partitionBool = cJSON_GetObjectItemCaseSensitive(json, "partitionEnabled");
+    cJSON *vramTransferBool = cJSON_GetObjectItemCaseSensitive(json, "vramTransferEnabled");
     cJSON *extended = cJSON_GetObjectItemCaseSensitive(json, "extended");
     cJSON *cellCount = cJSON_GetObjectItemCaseSensitive(json, "cellCount");
     cJSON *mappingType = cJSON_GetObjectItemCaseSensitive(json, "mappingType");
 
     options->labelEnabled = GetBool(labelBool);
-    options->partitionEnabled = GetBool(partitionBool);
+    options->vramTransferEnabled = GetBool(vramTransferBool);
     options->extended = GetBool(extended);
     options->cellCount = GetInt(cellCount);
     options->mappingType = GetInt(mappingType);
@@ -79,20 +79,27 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
         }
     }
 
-    if (options->partitionEnabled) 
+    if (options->vramTransferEnabled) 
     {
-        cJSON *partitionCount = cJSON_GetObjectItemCaseSensitive(json, "partitionCount");
-        options->partitionCount = GetInt(partitionCount);
-        options->partitionData = malloc(sizeof(int) * options->partitionCount);
+        cJSON *vramTransferMaxSize = cJSON_GetObjectItemCaseSensitive(json, "vramTransferMaxSize");
+        options->vramTransferMaxSize = GetInt(vramTransferMaxSize);
+        
+        options->transferData = malloc(sizeof(struct CellVramTransferData *) * options->cellCount);
 
-        cJSON *partitions = cJSON_GetObjectItemCaseSensitive(json, "partitions");
-        cJSON *partition = NULL;
+        cJSON *transfers = cJSON_GetObjectItemCaseSensitive(json, "transferData");
+        cJSON *transfer = NULL;
 
         int j = 0;
-        cJSON_ArrayForEach(partition, partitions)
+        cJSON_ArrayForEach(transfer, transfers)
         {
-            int partitionValue = GetInt(partition);
-            options->partitionData[j++] = partitionValue;
+            cJSON *vramTransferOffset = cJSON_GetObjectItemCaseSensitive(transfer, "offset");
+            cJSON *vramTransferSize = cJSON_GetObjectItemCaseSensitive(transfer, "size");
+
+            options->transferData[j] = malloc(sizeof(struct CellVramTransferData));
+            options->transferData[j]->sourceDataOffset = GetInt(vramTransferOffset);
+            options->transferData[j]->size = GetInt(vramTransferSize);
+
+            j++;
         }
     }
 
@@ -214,7 +221,7 @@ char *GetNCERJson(struct JsonToCellOptions *options)
 
     cJSON_AddBoolToObject(ncer, "labelEnabled", options->labelEnabled);
     cJSON_AddBoolToObject(ncer, "extended", options->extended);
-    cJSON_AddBoolToObject(ncer, "partitionEnabled", options->partitionEnabled);
+    cJSON_AddBoolToObject(ncer, "vramTransferEnabled", options->vramTransferEnabled);
     cJSON_AddNumberToObject(ncer, "cellCount", options->cellCount);
     cJSON_AddNumberToObject(ncer, "mappingType", options->mappingType);
     
@@ -283,11 +290,18 @@ char *GetNCERJson(struct JsonToCellOptions *options)
         cJSON_AddNumberToObject(ncer, "labelCount", options->labelCount);
     }
 
-    if (options->partitionEnabled) 
+    if (options->vramTransferEnabled) 
     {
-        cJSON *partitions = cJSON_CreateIntArray(options->partitionData, options->partitionCount);
-        cJSON_AddItemToObject(ncer, "partitions", partitions);
-        cJSON_AddNumberToObject(ncer, "partitionCount", options->partitionCount);
+        cJSON_AddNumberToObject(ncer, "vramTransferMaxSize", options->vramTransferMaxSize);
+        cJSON *transfers = cJSON_AddArrayToObject(ncer, "transferData");
+
+        for (int idx = 0; idx < options->cellCount; idx++)
+        {
+            cJSON *transfer = cJSON_CreateObject();
+            cJSON_AddNumberToObject(transfer, "offset", options->transferData[idx]->sourceDataOffset);
+            cJSON_AddNumberToObject(transfer, "size", options->transferData[idx]->size);
+            cJSON_AddItemToArray(transfers, transfer);
+        }
     }
 
     char *jsonString = cJSON_Print(ncer);

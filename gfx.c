@@ -913,8 +913,8 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
     options->cellCount = data[blockOffset + 0x8] | (data[blockOffset + 0x9] << 8);
     options->extended = data[blockOffset + 0xA] == 1;
 
-    int partitionOffset = (data[blockOffset + 0x14] | data[blockOffset + 0x15] << 8);
-    options->partitionEnabled = partitionOffset > 0;
+    int vramTransferOffset = (data[blockOffset + 0x14] | data[blockOffset + 0x15] << 8);
+    options->vramTransferEnabled = vramTransferOffset > 0;
     /*if (!options->extended)
     {
         //in theory not extended should be implemented, however not 100% sure
@@ -1005,19 +1005,23 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
         }
     }
 
-    if (options->partitionEnabled)
+    if (options->vramTransferEnabled)
     {
-        // FindNitroDataBlock returns a block size less 0x10 for header, but this requires the real block size
-        int realBlockSize = blockSize + 0x10;
-        offset = blockOffset + 0x08 + partitionOffset;
-        options->partitionData = malloc(realBlockSize - offset);
-        int index = 0;
-        while (offset < realBlockSize) 
+        offset = blockOffset + 0x08 + vramTransferOffset;
+        
+        // first 2 dwords are max size and offset, offset *should* always be 0x08 since the transfer data list immediately follows this
+        options->vramTransferMaxSize = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        offset += 0x08;
+
+        // read 1 VRAM transfer data block for each cell (this is an assumption based on the NCERs I looked at)
+        options->transferData = malloc(sizeof(struct CellVramTransferData *) * options->cellCount);
+        for (int idx = 0; idx < options->cellCount; idx++)
         {
-            options->partitionData[index++] = (data[offset] | data[offset + 1] << 8 | data[offset + 2] << 16 | data[offset + 3] << 24);
-            offset += 4;
+            options->transferData[idx] = malloc(sizeof(struct CellVramTransferData));
+            options->transferData[idx]->sourceDataOffset = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+            options->transferData[idx]->size = data[offset + 4] | (data[offset + 5] << 8) | (data[offset + 6] << 16) | (data[offset + 7] << 24);
+            offset += 8;
         }
-        options->partitionCount = index;
     }
 }
 
@@ -1095,8 +1099,11 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
 
     // KBEC base size: 0x08 per bank, or 0x10 per extended bank
     unsigned int kbecSize = options->cellCount * (options->extended ? 0x10 : 0x08);
-    // additional 0x04 for each partition.
-    kbecSize += options->partitionCount * 0x04;
+    // if VRAM transfer is enabled, add 0x08 for the header and 0x08 for each cell
+    if (options->vramTransferEnabled)
+    {
+        kbecSize += 0x08 + (0x08 * options->cellCount);
+    }
     // add 0x06 for number of OAMs - can be more than 1
     for (int idx = 0; idx < options->cellCount * iterNum; idx += iterNum)
     {
@@ -1133,14 +1140,15 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
 
     KBECHeader[16] = (options->mappingType & 0xFF); //not possible to be more than 8 bits, though 32 are allocated
 
-    // offset to partition data within KBEC section (offset from KBEC start + 0x08)
-    if (options->partitionEnabled) 
+    // offset to VRAM transfer data within KBEC section (offset from KBEC start + 0x08)
+    if (options->vramTransferEnabled) 
     {
-        unsigned int partitionStart = (kbecSize + 0x20) - (options->partitionCount * 0x04) - 0x08;
-        KBECHeader[20] = partitionStart & 0xFF;
-        KBECHeader[21] = (partitionStart >> 8) & 0xFF;
-        KBECHeader[22] = (partitionStart >> 16) & 0xFF;
-        KBECHeader[23] = (partitionStart >> 24) & 0xFF;
+        unsigned int vramTransferLength = 0x08 + (0x08 * options->cellCount);
+        unsigned int vramTransferOffset = (kbecSize + 0x20) - vramTransferLength - 0x08;
+        KBECHeader[20] = vramTransferOffset & 0xFF;
+        KBECHeader[21] = (vramTransferOffset >> 8) & 0xFF;
+        KBECHeader[22] = (vramTransferOffset >> 16) & 0xFF;
+        KBECHeader[23] = (vramTransferOffset >> 24) & 0xFF;
     }
 
     fwrite(KBECHeader, 1, 0x20, fp);
@@ -1239,14 +1247,35 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
         }
     }
 
-    // partition data
-    for (int idx = 0; idx < options->partitionCount; idx++) 
+    // VRAM transfer data
+    if (options->vramTransferEnabled)
     {
-        KBECContents[offset] = options->partitionData[idx] & 0xFF;
-        KBECContents[offset + 1] = (options->partitionData[idx] >> 8) & 0xFF;
-        KBECContents[offset + 2] = (options->partitionData[idx] >> 16) & 0xFF;
-        KBECContents[offset + 3] = (options->partitionData[idx] >> 24) & 0xFF;
-        offset += 4;
+        // max transfer size + fixed offset 0x08
+        KBECContents[offset] = options->vramTransferMaxSize & 0xFF;
+        KBECContents[offset + 1] = (options->vramTransferMaxSize >> 8) & 0xFF;
+        KBECContents[offset + 2] = (options->vramTransferMaxSize >> 16) & 0xFF;
+        KBECContents[offset + 3] = (options->vramTransferMaxSize >> 24) & 0xFF;
+
+        KBECContents[offset + 4] = 0x08;
+
+        offset += 8;
+
+        // write a VRAM transfer block for each cell
+        for (int idx = 0; idx < options->cellCount; idx++)
+        {
+            // offset
+            KBECContents[offset] = options->transferData[idx]->sourceDataOffset & 0xFF;
+            KBECContents[offset + 1] = (options->transferData[idx]->sourceDataOffset >> 8) & 0xFF;
+            KBECContents[offset + 2] = (options->transferData[idx]->sourceDataOffset >> 16) & 0xFF;
+            KBECContents[offset + 3] = (options->transferData[idx]->sourceDataOffset >> 24) & 0xFF;
+
+            // size
+            KBECContents[offset + 4] = options->transferData[idx]->size & 0xFF;
+            KBECContents[offset + 5] = (options->transferData[idx]->size >> 8) & 0xFF;
+            KBECContents[offset + 6] = (options->transferData[idx]->size >> 16) & 0xFF;
+            KBECContents[offset + 7] = (options->transferData[idx]->size >> 24) & 0xFF;
+            offset += 8;
+        }
     }
 
     fwrite(KBECContents, 1, kbecSize, fp);
