@@ -1519,10 +1519,12 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
             // check if the result has already been used
+            bool isUsed = false;
             for (resultIndex = 0; resultIndex < options->resultCount; resultIndex++)
             {
                 if (usedResults[resultIndex] == options->sequenceData[i]->frameData[j]->resultId)
                 {
+                    isUsed = true;
                     break;
                 }
 
@@ -1535,12 +1537,15 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             }
 
             // if not already used, add it to the result size for the sequence
-            if (options->animationResults[resultIndex]->resultType == 0)
-                sequenceLen += 0x2;
-            else if (options->animationResults[resultIndex]->resultType == 1)
-                sequenceLen += 0x10;
-            else if (options->animationResults[resultIndex]->resultType == 2)
-                sequenceLen += 0x8;
+            if (!isUsed)
+            {
+                if (options->animationResults[resultIndex]->resultType == 0)
+                    sequenceLen += 0x2;
+                else if (options->animationResults[resultIndex]->resultType == 1)
+                    sequenceLen += 0x10;
+                else if (options->animationResults[resultIndex]->resultType == 2)
+                    sequenceLen += 0x8;
+            }
         }
         if (sequenceLen % 4 != 0) 
         {
