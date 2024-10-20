@@ -1,7 +1,9 @@
 // Copyright (c) 2015 YamaArashi
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include "global.h"
 #include "lz.h"
 
@@ -92,6 +94,7 @@ unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, 
 
 	int srcPos = 0;
 	int destPos = 4;
+    int lookbackStart = 0;
 
 	for (;;) {
 		unsigned char *flags = &dest[destPos++];
@@ -100,38 +103,43 @@ unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, 
 		for (int i = 0; i < 8; i++) {
 			int bestBlockDistance = 0;
 			int bestBlockSize = 0;
-			int blockDistance = minDistance;
 
-			while (blockDistance <= srcPos && blockDistance <= 0x1000) {
-				int blockStart = srcPos - blockDistance;
-				int blockSize = 0;
+            int blockStart = lookbackStart;
+            while (blockStart != srcPos) {
+                int blockSize = 0;
 
-				while (blockSize < 18
-				    && srcPos + blockSize < srcSize
-				    && src[blockStart + blockSize] == src[srcPos + blockSize])
-					blockSize++;
+                while (blockSize < 18
+                    && srcPos + blockSize < srcSize
+                    && src[blockStart + blockSize] == src[srcPos + blockSize])
+                    blockSize++;
 
-				if (blockSize > bestBlockSize) {
-					bestBlockDistance = blockDistance;
-					bestBlockSize = blockSize;
+                if (blockSize > bestBlockSize
+                    && srcPos - blockStart >= minDistance) {
+                    bestBlockDistance = srcPos - blockStart;
+                    bestBlockSize = blockSize;
 
-					if (blockSize == 18)
-						break;
-				}
+                    if (blockSize == 18)
+                        break;
+                }
 
-				blockDistance++;
-			}
+                blockStart++;
+            }
 
+            int lookbackJump = 0;
 			if (bestBlockSize >= 3) {
 				*flags |= (0x80 >> i);
 				srcPos += bestBlockSize;
+                lookbackJump = srcPos - lookbackStart > 0x1000 ? bestBlockSize : 0;
+
 				bestBlockSize -= 3;
 				bestBlockDistance--;
 				dest[destPos++] = (bestBlockSize << 4) | ((unsigned int)bestBlockDistance >> 8);
 				dest[destPos++] = (unsigned char)bestBlockDistance;
 			} else {
+                lookbackJump = (int)(srcPos - lookbackStart > 0x1000);
 				dest[destPos++] = src[srcPos++];
 			}
+            lookbackStart += lookbackJump;
 
 			if (srcPos == srcSize) {
 				// Pad to multiple of 4 bytes.

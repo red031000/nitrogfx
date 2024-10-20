@@ -166,4 +166,21 @@ struct JsonToAnimationOptions {
     short resultCount;
 };
 
+struct NtrFontOptions {
+    char *metadataFilePath;
+    bool useSubscreenPalette;
+};
+
+struct NtrFontMetadata {
+    uint32_t size;
+    uint32_t widthTableOffset;
+    uint32_t numGlyphs;
+    uint8_t maxWidth;
+    uint8_t maxHeight;
+    uint8_t glyphWidth;
+    uint8_t glyphHeight;
+
+    uint8_t *glyphWidthTable;
+};
+
 #endif // OPTIONS_H

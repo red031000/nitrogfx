@@ -638,3 +638,79 @@ void FreeNANRAnimation(struct JsonToAnimationOptions *options)
     free(options->animationResults);
     free(options);
 }
+
+char *GetNtrFontMetadataJson(struct NtrFontMetadata *metadata)
+{
+    cJSON *json = cJSON_CreateObject();
+
+    cJSON_AddNumberToObject(json, "maxGlyphWidth", metadata->maxWidth);
+    cJSON_AddNumberToObject(json, "maxGlyphHeight", metadata->maxHeight);
+
+    cJSON *glyphWidths = cJSON_AddArrayToObject(json, "glyphWidths");
+    for (int i = 0; i < metadata->numGlyphs; i++)
+    {
+        cJSON *width = cJSON_CreateNumber(metadata->glyphWidthTable[i]);
+        cJSON_AddItemToArray(glyphWidths, width);
+    }
+
+    char *jsonString = cJSON_Print(json);
+    cJSON_Delete(json);
+    return jsonString;
+}
+
+#define TILE_DIMENSION_PIXELS 8
+#define PIXELS_FOR_DIMENSION(dim) ((dim) * TILE_DIMENSION_PIXELS)
+#define TILES_FOR_PIXELS(num) (((num) + TILE_DIMENSION_PIXELS - 1) / TILE_DIMENSION_PIXELS)
+#define PIXELS_PER_BYTE_2BPP 4
+#define NTR_FONT_HEADER_SIZE 16
+
+struct NtrFontMetadata *ParseNtrFontMetadataJson(char *path)
+{
+    int fileLength;
+    unsigned char *jsonString = ReadWholeFile(path, &fileLength);
+
+    cJSON *json = cJSON_Parse((const char *)jsonString);
+    if (json == NULL)
+    {
+        const char *errorPtr = cJSON_GetErrorPtr();
+        FATAL_ERROR("Error in line \"%s\"\n", errorPtr);
+    }
+
+    cJSON *labelMaxGlyphWidth = cJSON_GetObjectItemCaseSensitive(json, "maxGlyphWidth");
+    cJSON *labelMaxGlyphHeight = cJSON_GetObjectItemCaseSensitive(json, "maxGlyphHeight");
+    cJSON *labelGlyphWidths = cJSON_GetObjectItemCaseSensitive(json, "glyphWidths");
+    int numGlyphs = cJSON_GetArraySize(labelGlyphWidths);
+
+    struct NtrFontMetadata *metadata = malloc(sizeof(struct NtrFontMetadata));
+
+    metadata->size = NTR_FONT_HEADER_SIZE;
+    metadata->numGlyphs = numGlyphs;
+    metadata->maxWidth = GetInt(labelMaxGlyphWidth);
+    metadata->maxHeight = GetInt(labelMaxGlyphHeight);
+
+    metadata->glyphWidth = TILES_FOR_PIXELS(metadata->maxWidth);
+    metadata->glyphHeight = TILES_FOR_PIXELS(metadata->maxHeight);
+
+    int glyphBitmapSize = (PIXELS_FOR_DIMENSION(metadata->glyphWidth) * PIXELS_FOR_DIMENSION(metadata->glyphHeight)) / PIXELS_PER_BYTE_2BPP;
+    metadata->widthTableOffset = metadata->size + (metadata->numGlyphs * glyphBitmapSize);
+
+    metadata->glyphWidthTable = malloc(metadata->numGlyphs);
+
+    uint8_t *glyphWidthCursor = metadata->glyphWidthTable;
+    cJSON *glyphWidthIter = NULL;
+    cJSON_ArrayForEach(glyphWidthIter, labelGlyphWidths)
+    {
+        if (!cJSON_IsNumber(glyphWidthIter))
+        {
+            const char *errorPtr = cJSON_GetErrorPtr();
+            FATAL_ERROR("Error in line \"%s\"\n", errorPtr);
+        }
+
+        *glyphWidthCursor = glyphWidthIter->valueint;
+        glyphWidthCursor++;
+    }
+
+    cJSON_Delete(json);
+    free(jsonString);
+    return metadata;
+}
