@@ -71,7 +71,58 @@ fail:
 	FATAL_ERROR("Fatal error while decompressing LZ file.\n");
 }
 
-unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, const int minDistance)
+static void FindBestBlockForwards(unsigned char *src, int srcPos, int srcSize, const int minDistance, int *outBestBlockDistance, int *outBestBlockSize)
+{
+    int blockStart = srcPos < 0x1000 ? 0 : srcPos - 0x1000;
+    while (blockStart != srcPos) {
+        int blockSize = 0;
+
+        while (blockSize < 18
+            && srcPos + blockSize < srcSize
+            && src[blockStart + blockSize] == src[srcPos + blockSize])
+            blockSize++;
+
+        if (blockSize > *outBestBlockSize
+            && srcPos - blockStart >= minDistance) {
+            *outBestBlockDistance = srcPos - blockStart;
+            *outBestBlockSize = blockSize;
+
+            if (blockSize == 18)
+                break;
+        }
+
+        blockStart++;
+    }
+}
+
+static void FindBestBlockBackwards(unsigned char *src, int srcPos, int srcSize, const int minDistance, int *outBestBlockDistance, int *outBestBlockSize)
+{
+    int blockDistance = minDistance;
+
+    while (blockDistance <= srcPos && blockDistance <= 0x1000) {
+        int blockStart = srcPos - blockDistance;
+        int blockSize = 0;
+
+        while (blockSize < 18
+            && srcPos + blockSize < srcSize
+            && src[blockStart + blockSize] == src[srcPos + blockSize])
+            blockSize++;
+
+        if (blockSize > *outBestBlockSize) {
+            *outBestBlockDistance = blockDistance;
+            *outBestBlockSize = blockSize;
+
+            if (blockSize == 18)
+                break;
+        }
+
+        blockDistance++;
+    }
+}
+
+typedef void (*FindBestBlockFunc)(unsigned char *src, int srcPos, int srcSize, const int minDistance, int *outBestBlockDistance, int *outBestBlockSize);
+
+unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, const int minDistance, bool forwardIteration)
 {
 	if (srcSize <= 0)
 		goto fail;
@@ -94,7 +145,7 @@ unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, 
 
 	int srcPos = 0;
 	int destPos = 4;
-    int lookbackStart = 0;
+    FindBestBlockFunc FindBestBlock = forwardIteration ? FindBestBlockForwards : FindBestBlockBackwards;
 
 	for (;;) {
 		unsigned char *flags = &dest[destPos++];
@@ -104,42 +155,18 @@ unsigned char *LZCompress(unsigned char *src, int srcSize, int *compressedSize, 
 			int bestBlockDistance = 0;
 			int bestBlockSize = 0;
 
-            int blockStart = lookbackStart;
-            while (blockStart != srcPos) {
-                int blockSize = 0;
+            FindBestBlock(src, srcPos, srcSize, minDistance, &bestBlockDistance, &bestBlockSize);
 
-                while (blockSize < 18
-                    && srcPos + blockSize < srcSize
-                    && src[blockStart + blockSize] == src[srcPos + blockSize])
-                    blockSize++;
-
-                if (blockSize > bestBlockSize
-                    && srcPos - blockStart >= minDistance) {
-                    bestBlockDistance = srcPos - blockStart;
-                    bestBlockSize = blockSize;
-
-                    if (blockSize == 18)
-                        break;
-                }
-
-                blockStart++;
-            }
-
-            int lookbackJump = 0;
 			if (bestBlockSize >= 3) {
 				*flags |= (0x80 >> i);
 				srcPos += bestBlockSize;
-                lookbackJump = srcPos - lookbackStart > 0x1000 ? bestBlockSize : 0;
-
 				bestBlockSize -= 3;
 				bestBlockDistance--;
 				dest[destPos++] = (bestBlockSize << 4) | ((unsigned int)bestBlockDistance >> 8);
 				dest[destPos++] = (unsigned char)bestBlockDistance;
 			} else {
-                lookbackJump = (int)(srcPos - lookbackStart > 0x1000);
 				dest[destPos++] = src[srcPos++];
 			}
-            lookbackStart += lookbackJump;
 
 			if (srcPos == srcSize) {
 				// Pad to multiple of 4 bytes.
