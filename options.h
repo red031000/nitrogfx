@@ -123,8 +123,8 @@ struct FrameData {
 struct SequenceData {
     short frameCount;
     short loopStartFrame;
+    short animationElement;
     short animationType;
-    short animationType2;
     int playbackMode;
     struct FrameData **frameData;
 };

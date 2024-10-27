@@ -376,14 +376,14 @@ struct JsonToAnimationOptions *ParseNANRJson(char *path)
 
         cJSON *frameCount = cJSON_GetObjectItemCaseSensitive(sequence, "frameCount");
         cJSON *loopStartFrame = cJSON_GetObjectItemCaseSensitive(sequence, "loopStartFrame");
+        cJSON *animationElement = cJSON_GetObjectItemCaseSensitive(sequence, "animationElement");
         cJSON *animationType = cJSON_GetObjectItemCaseSensitive(sequence, "animationType");
-        cJSON *animationType2 = cJSON_GetObjectItemCaseSensitive(sequence, "animationType2");
         cJSON *playbackMode = cJSON_GetObjectItemCaseSensitive(sequence, "playbackMode");
 
         options->sequenceData[i]->frameCount = GetInt(frameCount);
         options->sequenceData[i]->loopStartFrame = GetInt(loopStartFrame);
+        options->sequenceData[i]->animationElement = GetInt(animationElement);
         options->sequenceData[i]->animationType = GetInt(animationType);
-        options->sequenceData[i]->animationType2 = GetInt(animationType2);
         options->sequenceData[i]->playbackMode = GetInt(playbackMode);
 
         options->sequenceData[i]->frameData = malloc(sizeof(struct FrameData *) * options->sequenceData[i]->frameCount);
@@ -521,8 +521,8 @@ char *GetNANRJson(struct JsonToAnimationOptions *options)
         cJSON *sequence = cJSON_CreateObject();
         cJSON_AddNumberToObject(sequence, "frameCount", options->sequenceData[i]->frameCount);
         cJSON_AddNumberToObject(sequence, "loopStartFrame", options->sequenceData[i]->loopStartFrame);
+        cJSON_AddNumberToObject(sequence, "animationElement", options->sequenceData[i]->animationElement);
         cJSON_AddNumberToObject(sequence, "animationType", options->sequenceData[i]->animationType);
-        cJSON_AddNumberToObject(sequence, "animationType2", options->sequenceData[i]->animationType2);
         cJSON_AddNumberToObject(sequence, "playbackMode", options->sequenceData[i]->playbackMode);
 
         cJSON *frameData = cJSON_AddArrayToObject(sequence, "frameData");

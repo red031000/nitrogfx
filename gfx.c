@@ -1327,8 +1327,8 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
     {
         options->sequenceData[i]->frameCount = data[offset] | (data[offset + 1] << 8);
         options->sequenceData[i]->loopStartFrame = data[offset + 2] | (data[offset + 3] << 8);
-        options->sequenceData[i]->animationType = data[offset + 4] | (data[offset + 5] << 8);
-        options->sequenceData[i]->animationType2 = data[offset + 6] | (data[offset + 7] << 8);
+        options->sequenceData[i]->animationElement = data[offset + 4] | (data[offset + 5] << 8);
+        options->sequenceData[i]->animationType = data[offset + 6] | (data[offset + 7] << 8);
         options->sequenceData[i]->playbackMode = data[offset + 8] | (data[offset + 9] << 8) | (data[offset + 10] << 16) | (data[offset + 11] << 24);
         frameOffsets[i] = data[offset + 12] | (data[offset + 13] << 8) | (data[offset + 14] << 16) | (data[offset + 15] << 24);
 
@@ -1402,12 +1402,12 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         options->animationResults[i] = malloc(sizeof(struct AnimationResults));
     }
 
-    // store the animationType of the corresponding sequence as this result's resultType
+    // store the animationElement of the corresponding sequence as this result's resultType
     for (int i = 0; i < options->sequenceCount; i++)
     {
         for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
         {
-            options->animationResults[options->sequenceData[i]->frameData[j]->resultId]->resultType = options->sequenceData[i]->animationType;
+            options->animationResults[options->sequenceData[i]->frameData[j]->resultId]->resultType = options->sequenceData[i]->animationElement;
         }
     }
 
@@ -1612,10 +1612,10 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         KBNAContents[i + 1] = options->sequenceData[i / 0x10]->frameCount >> 8;
         KBNAContents[i + 2] = options->sequenceData[i / 0x10]->loopStartFrame & 0xff;
         KBNAContents[i + 3] = options->sequenceData[i / 0x10]->loopStartFrame >> 8;
-        KBNAContents[i + 4] = options->sequenceData[i / 0x10]->animationType & 0xff;
-        KBNAContents[i + 5] = (options->sequenceData[i / 0x10]->animationType >> 8) & 0xff;
-        KBNAContents[i + 6] = options->sequenceData[i / 0x10]->animationType2 & 0xff;
-        KBNAContents[i + 7] = (options->sequenceData[i / 0x10]->animationType2 >> 8) & 0xff;
+        KBNAContents[i + 4] = options->sequenceData[i / 0x10]->animationElement & 0xff;
+        KBNAContents[i + 5] = (options->sequenceData[i / 0x10]->animationElement >> 8) & 0xff;
+        KBNAContents[i + 6] = options->sequenceData[i / 0x10]->animationType & 0xff;
+        KBNAContents[i + 7] = (options->sequenceData[i / 0x10]->animationType >> 8) & 0xff;
         KBNAContents[i + 8] = options->sequenceData[i / 0x10]->playbackMode & 0xff;
         KBNAContents[i + 9] = (options->sequenceData[i / 0x10]->playbackMode >> 8) & 0xff;
         KBNAContents[i + 10] = (options->sequenceData[i / 0x10]->playbackMode >> 16) & 0xff;
