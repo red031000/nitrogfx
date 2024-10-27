@@ -641,6 +641,14 @@ void FreeNCERCell(struct JsonToCellOptions *options)
         }
         free(options->labels);
     }
+    if (options->vramTransferEnabled)
+    {
+        for (int j = 0; j < options->cellCount; j++)
+        {
+            free(options->transferData[j]);
+        }
+        free(options->transferData);
+    }
     free(options->cells);
     free(options);
 }
