@@ -47,11 +47,13 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
     }
 
     cJSON *labelBool = cJSON_GetObjectItemCaseSensitive(json, "labelEnabled");
+    cJSON *vramTransferBool = cJSON_GetObjectItemCaseSensitive(json, "vramTransferEnabled");
     cJSON *extended = cJSON_GetObjectItemCaseSensitive(json, "extended");
     cJSON *cellCount = cJSON_GetObjectItemCaseSensitive(json, "cellCount");
     cJSON *mappingType = cJSON_GetObjectItemCaseSensitive(json, "mappingType");
 
     options->labelEnabled = GetBool(labelBool);
+    options->vramTransferEnabled = GetBool(vramTransferBool);
     options->extended = GetBool(extended);
     options->cellCount = GetInt(cellCount);
     options->mappingType = GetInt(mappingType);
@@ -73,6 +75,30 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
             char *labelString = GetString(label);
             options->labels[j] = malloc(strlen(labelString) + 1);
             strcpy(options->labels[j], labelString);
+            j++;
+        }
+    }
+
+    if (options->vramTransferEnabled) 
+    {
+        cJSON *vramTransferMaxSize = cJSON_GetObjectItemCaseSensitive(json, "vramTransferMaxSize");
+        options->vramTransferMaxSize = GetInt(vramTransferMaxSize);
+        
+        options->transferData = malloc(sizeof(struct CellVramTransferData *) * options->cellCount);
+
+        cJSON *transfers = cJSON_GetObjectItemCaseSensitive(json, "transferData");
+        cJSON *transfer = NULL;
+
+        int j = 0;
+        cJSON_ArrayForEach(transfer, transfers)
+        {
+            cJSON *vramTransferOffset = cJSON_GetObjectItemCaseSensitive(transfer, "offset");
+            cJSON *vramTransferSize = cJSON_GetObjectItemCaseSensitive(transfer, "size");
+
+            options->transferData[j] = malloc(sizeof(struct CellVramTransferData));
+            options->transferData[j]->sourceDataOffset = GetInt(vramTransferOffset);
+            options->transferData[j]->size = GetInt(vramTransferSize);
+
             j++;
         }
     }
@@ -195,6 +221,7 @@ char *GetNCERJson(struct JsonToCellOptions *options)
 
     cJSON_AddBoolToObject(ncer, "labelEnabled", options->labelEnabled);
     cJSON_AddBoolToObject(ncer, "extended", options->extended);
+    cJSON_AddBoolToObject(ncer, "vramTransferEnabled", options->vramTransferEnabled);
     cJSON_AddNumberToObject(ncer, "cellCount", options->cellCount);
     cJSON_AddNumberToObject(ncer, "mappingType", options->mappingType);
     
@@ -261,6 +288,20 @@ char *GetNCERJson(struct JsonToCellOptions *options)
         cJSON *labels = cJSON_CreateStringArray((const char * const*)options->labels, options->labelCount);
         cJSON_AddItemToObject(ncer, "labels", labels);
         cJSON_AddNumberToObject(ncer, "labelCount", options->labelCount);
+    }
+
+    if (options->vramTransferEnabled) 
+    {
+        cJSON_AddNumberToObject(ncer, "vramTransferMaxSize", options->vramTransferMaxSize);
+        cJSON *transfers = cJSON_AddArrayToObject(ncer, "transferData");
+
+        for (int idx = 0; idx < options->cellCount; idx++)
+        {
+            cJSON *transfer = cJSON_CreateObject();
+            cJSON_AddNumberToObject(transfer, "offset", options->transferData[idx]->sourceDataOffset);
+            cJSON_AddNumberToObject(transfer, "size", options->transferData[idx]->size);
+            cJSON_AddItemToArray(transfers, transfer);
+        }
     }
 
     char *jsonString = cJSON_Print(ncer);
@@ -599,6 +640,14 @@ void FreeNCERCell(struct JsonToCellOptions *options)
             free(options->labels[j]);
         }
         free(options->labels);
+    }
+    if (options->vramTransferEnabled)
+    {
+        for (int j = 0; j < options->cellCount; j++)
+        {
+            free(options->transferData[j]);
+        }
+        free(options->transferData);
     }
     free(options->cells);
     free(options);
