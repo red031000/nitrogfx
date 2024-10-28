@@ -1555,6 +1555,8 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         }
     }
 
+    free(usedResults);
+
     unsigned int KNBASize = totalSize;
 
     if (options->labelEnabled)
