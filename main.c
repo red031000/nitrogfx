@@ -74,7 +74,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     if (options->paletteFilePath != NULL)
     {
-        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex);
+        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex, false);
         image.hasPalette = true;
     }
     else
@@ -619,7 +619,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     }
 
     ReadPngPalette(inputPath, &palette);
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, false);
 }
 
 void HandleGbaToJascPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -634,6 +634,7 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
 {
     struct Palette palette;
     int bitdepth = 0;
+    bool inverted = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -652,13 +653,17 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
             if (bitdepth != 4 && bitdepth != 8)
                 FATAL_ERROR("Bitdepth must be 4 or 8.\n");
         }
+        else if (strcmp(option, "-invertsize") == 0)
+        {
+            inverted = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
         }
     }
 
-    ReadNtrPalette(inputPath, &palette, bitdepth, 0);
+    ReadNtrPalette(inputPath, &palette, bitdepth, 0, inverted);
     WriteJascPalette(outputPath, &palette);
 }
 
@@ -708,6 +713,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     int bitdepth = 0;
     int compNum = 0;
     bool pcmp = false;
+    bool inverted = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -768,6 +774,10 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
         {
             pcmp = true;
         }
+        else if (strcmp(option, "-invertsize") == 0)
+        {
+            inverted = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -781,7 +791,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     if (numColors != 0)
         palette.numColors = numColors;
 
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted);
 }
 
 void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)

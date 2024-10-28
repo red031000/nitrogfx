@@ -714,7 +714,7 @@ void ReadGbaPalette(char *path, struct Palette *palette)
     free(data);
 }
 
-void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex)
+void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool inverted)
 {
     int fileSize;
     unsigned char *data = ReadWholeFile(path, &fileSize);
@@ -739,6 +739,7 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
     bitdepth = bitdepth ? bitdepth : palette->bitDepth;
 
     size_t paletteSize = (paletteHeader[0x10]) | (paletteHeader[0x11] << 8) | (paletteHeader[0x12] << 16) | (paletteHeader[0x13] << 24);
+    if (inverted) paletteSize = 0x200 - paletteSize;
     if (palIndex == 0) {
         palette->numColors = paletteSize / 2;
     } else {
@@ -789,7 +790,7 @@ void WriteGbaPalette(char *path, struct Palette *palette)
     fclose(fp);
 }
 
-void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum, bool pcmp)
+void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum, bool pcmp, bool inverted)
 {
     FILE *fp = fopen(path, "wb");
 
@@ -843,10 +844,11 @@ void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, in
     }
 
     //size
-    palHeader[16] = size & 0xFF;
-    palHeader[17] = (size >> 8) & 0xFF;
-    palHeader[18] = (size >> 16) & 0xFF;
-    palHeader[19] = (size >> 24) & 0xFF;
+    int colorSize = inverted ? 0x200 - size : size;
+    palHeader[16] = colorSize & 0xFF;
+    palHeader[17] = (colorSize >> 8) & 0xFF;
+    palHeader[18] = (colorSize >> 16) & 0xFF;
+    palHeader[19] = (colorSize >> 24) & 0xFF;
 
     fwrite(palHeader, 1, 0x18, fp);
 
