@@ -1435,6 +1435,7 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             {
                 if (resultOffsets[k] == options->sequenceData[i]->frameData[j]->resultOffset)
                 {
+                    options->sequenceData[i]->frameData[j]->resultId = k;
                     present = true;
                     break;
                 }
@@ -1447,6 +1448,7 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
                 {
                     if (resultOffsets[k] == -1)
                     {
+                        options->sequenceData[i]->frameData[j]->resultId = k;
                         resultOffsets[k] = options->sequenceData[i]->frameData[j]->resultOffset;
                         break;
                     }
@@ -1477,37 +1479,49 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         options->animationResults[i] = malloc(sizeof(struct AnimationResults));
     }
 
+    // store the animationElement of the corresponding sequence as this result's resultType
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
+        {
+            options->animationResults[options->sequenceData[i]->frameData[j]->resultId]->resultType = options->sequenceData[i]->animationElement;
+        }
+    }
+
     int resultOffset = 0;
+    int lastSequence = 0;
     for (int i = 0; i < options->resultCount; i++)
     {
-        if (data[offset + 2] == 0xCC && data[offset + 3] == 0xCC)
-        {
-            options->animationResults[i]->resultType = 0;
-        }
-        else if (data[offset + 2] == 0xEF && data[offset + 3] == 0xBE)
-        {
-            options->animationResults[i]->resultType = 2;
-        }
-        else
-        {
-            options->animationResults[i]->resultType = 1;
-        }
+        // find the earliest sequence matching this animation result,
+        // and add padding if the sequence changes + the total offset is not 4-byte aligned.
+        bool found = false;
         for (int j = 0; j < options->sequenceCount; j++)
         {
             for (int k = 0; k < options->sequenceData[j]->frameCount; k++)
             {
-                if (options->sequenceData[j]->frameData[k]->resultOffset == resultOffset)
+                if (options->sequenceData[j]->frameData[k]->resultId == i)
                 {
-                    options->sequenceData[j]->frameData[k]->resultId = i;
+                    if (lastSequence != j)
+                    {
+                        lastSequence = j;
+                        if (resultOffset % 4 != 0)
+                        {
+                            resultOffset += 0x2;
+                            offset += 0x2;
+                        }
+                    }
+                    found = true;
+                    break;
                 }
             }
+            if (found) break;
         }
         switch (options->animationResults[i]->resultType)
         {
             case 0: //index
                 options->animationResults[i]->index = data[offset] | (data[offset + 1] << 8);
-                resultOffset += 0x4;
-                offset += 0x4;
+                resultOffset += 0x2;
+                offset += 0x2;
                 break;
 
             case 1: //SRT
@@ -1530,6 +1544,9 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
                 break;
         }
     }
+
+    // add any missed padding from the final frame before processing labels
+    if (offset % 4 != 0) offset += 2;
 
     if (options->labelEnabled)
     {
@@ -1556,16 +1573,68 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
 
     unsigned int totalSize = 0x20 + options->sequenceCount * 0x10 + options->frameCount * 0x8;
 
-    //todo: check these
     for (int i = 0; i < options->resultCount; i++)
     {
         if (options->animationResults[i]->resultType == 0)
-            totalSize += 0x4;
+            totalSize += 0x2;
         else if (options->animationResults[i]->resultType == 1)
             totalSize += 0x10;
         else if (options->animationResults[i]->resultType == 2)
             totalSize += 0x8;
     }
+
+    // foreach sequence, need to check whether padding is applied for its results
+    // then add 0x02 to totalSize if padding exists.
+    // padding exists if the animation results for that sequence are not 4-byte aligned.
+    // also flag the last result for the sequence with `padded` to save having to redo this same step later.
+    int *usedResults = malloc(sizeof(int) * options->frameCount);
+    memset(usedResults, -1, sizeof(int) * options->frameCount);
+    for (int i = 0; i < options->sequenceCount; i++)
+    {
+        int sequenceLen = 0;
+        int resultIndex = 0;
+        int lastNewResultIndex = -1;
+        for (int j = 0; j < options->sequenceData[i]->frameCount; j++)
+        {
+            // check if the result has already been used
+            bool isUsed = false;
+            for (resultIndex = 0; resultIndex < options->resultCount; resultIndex++)
+            {
+                if (usedResults[resultIndex] == options->sequenceData[i]->frameData[j]->resultId)
+                {
+                    isUsed = true;
+                    break;
+                }
+
+                // if not already used, add it to the list
+                if (usedResults[resultIndex] == -1)
+                {
+                    usedResults[resultIndex] = options->sequenceData[i]->frameData[j]->resultId;
+                    lastNewResultIndex = options->sequenceData[i]->frameData[j]->resultId;
+                    break;
+                }
+            }
+
+            // if not already used, add it to the result size for the sequence
+            if (!isUsed)
+            {
+                if (options->animationResults[resultIndex]->resultType == 0)
+                    sequenceLen += 0x2;
+                else if (options->animationResults[resultIndex]->resultType == 1)
+                    sequenceLen += 0x10;
+                else if (options->animationResults[resultIndex]->resultType == 2)
+                    sequenceLen += 0x8;
+            }
+        }
+        if (sequenceLen % 4 != 0 && lastNewResultIndex != -1)
+        {
+            totalSize += 0x02;
+            // mark the last new animationResult index for the sequence as padded, this saves needing to check this again later
+            options->animationResults[lastNewResultIndex]->padded = true;
+        }
+    }
+
+    free(usedResults);
 
     unsigned int KNBASize = totalSize;
 
@@ -1625,9 +1694,9 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         KBNAContents[i + 2] = options->sequenceData[i / 0x10]->loopStartFrame & 0xff;
         KBNAContents[i + 3] = options->sequenceData[i / 0x10]->loopStartFrame >> 8;
         KBNAContents[i + 4] = options->sequenceData[i / 0x10]->animationElement & 0xff;
-        KBNAContents[i + 5] = options->sequenceData[i / 0x10]->animationElement >> 8;
+        KBNAContents[i + 5] = (options->sequenceData[i / 0x10]->animationElement >> 8) & 0xff;
         KBNAContents[i + 6] = options->sequenceData[i / 0x10]->animationType & 0xff;
-        KBNAContents[i + 7] = options->sequenceData[i / 0x10]->animationType >> 8;
+        KBNAContents[i + 7] = (options->sequenceData[i / 0x10]->animationType >> 8) & 0xff;
         KBNAContents[i + 8] = options->sequenceData[i / 0x10]->playbackMode & 0xff;
         KBNAContents[i + 9] = (options->sequenceData[i / 0x10]->playbackMode >> 8) & 0xff;
         KBNAContents[i + 10] = (options->sequenceData[i / 0x10]->playbackMode >> 16) & 0xff;
@@ -1647,11 +1716,13 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             int resPtr = 0;
             for (int l = 0; l < options->sequenceData[m]->frameData[k]->resultId; l++) {
                 if (options->animationResults[l]->resultType == 0)
-                    resPtr += 0x4;
+                    resPtr += 0x2;
                 else if (options->animationResults[l]->resultType == 1)
                     resPtr += 0x10;
                 else if (options->animationResults[l]->resultType == 2)
                     resPtr += 0x8;
+                
+                if (options->animationResults[l]->padded) resPtr += 0x02;
             }
             KBNAContents[j + (k * 8)] = resPtr & 0xff;
             KBNAContents[j + (k * 8) + 1] = (resPtr >> 8) & 0xff;
@@ -1665,7 +1736,6 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         j += options->sequenceData[m]->frameCount * 8;
     }
 
-    //todo: these are extrapolated, need confirming
     int resPtrCounter = j;
     for (int k = 0; k < options->resultCount; k++)
     {
@@ -1674,9 +1744,7 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             case 0:
                 KBNAContents[resPtrCounter] = options->animationResults[k]->index & 0xff;
                 KBNAContents[resPtrCounter + 1] = options->animationResults[k]->index >> 8;
-                KBNAContents[resPtrCounter + 2] = 0xCC;
-                KBNAContents[resPtrCounter + 3] = 0xCC;
-                resPtrCounter += 0x4;
+                resPtrCounter += 0x2;
                 break;
 
             case 1:
@@ -1710,6 +1778,14 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
                 KBNAContents[resPtrCounter + 7] = options->animationResults[k]->dataT.positionY >> 8;
                 resPtrCounter += 0x8;
                 break;
+        }
+
+        // use the `padded` flag which was stored earlier to inject padding
+        if (options->animationResults[k]->padded) 
+        {
+            KBNAContents[resPtrCounter] = 0xCC;
+            KBNAContents[resPtrCounter + 1] = 0xCC;
+            resPtrCounter += 0x2;
         }
     }
 

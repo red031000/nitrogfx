@@ -155,6 +155,7 @@ struct AnimationDataT {
 
 struct AnimationResults {
     short resultType;
+    bool padded;
     union {
         short index;
         struct AnimationDataSRT dataSrt;
