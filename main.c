@@ -141,7 +141,7 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
     fclose(fp);
     struct Image image;
 
-    image.bitDepth = options->bitDepth;
+    image.bitDepth = options->bitDepth == 0 ? 4 : options->bitDepth;
 
     ReadPng(inputPath, &image);
 
@@ -160,7 +160,9 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
         free(string);
     }
 
-    WriteNtrImage(outputPath, options->numTiles, image.bitDepth, options->colsPerChunk, options->rowsPerChunk,
+    options->bitDepth = options->bitDepth == 0 ? image.bitDepth : options->bitDepth;
+
+    WriteNtrImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk,
                   &image, !image.hasPalette, options->clobberSize, options->byteOrder, options->version101,
                   options->sopc, options->vramTransfer, options->scanMode, options->mappingType, key, options->wrongSize);
 
@@ -420,7 +422,7 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
 {
     struct PngToNtrOptions options;
     options.numTiles = 0;
-    options.bitDepth = 4;
+    options.bitDepth = 0;
     options.colsPerChunk = 1;
     options.rowsPerChunk = 1;
     options.wrongSize = false;
