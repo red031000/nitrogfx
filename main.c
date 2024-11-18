@@ -801,11 +801,22 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted);
 }
 
-void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
     struct JsonToCellOptions *options;
 
     options = ParseNCERJson(inputPath);
+    options->padOAM = true;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-nopadoam") == 0)
+        {
+            options->padOAM = false;
+        }
+    }
 
     WriteNtrCell(outputPath, options);
 
