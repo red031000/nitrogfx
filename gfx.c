@@ -1113,7 +1113,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     }
 
     // KBEC size is padded to be 4-byte aligned
-    kbecSize += kbecSize % 4;
+    if (options->padOAM) kbecSize += kbecSize % 4;
 
     unsigned int totalSize = (options->labelEnabled > 0 ? 0x34 : 0x20) + kbecSize;
 
