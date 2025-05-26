@@ -555,6 +555,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     int newheight;
     int newwidth;
     int pixelOffset = 0;
+    int tileModifier = pow(2, options->mappingType);
     unsigned char *newPixels = malloc(image->height * image->width);
 
     for (int i = 0; i < options->cellCount; i++)
@@ -568,11 +569,16 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             if (j+1 < options->cells[i]->oamCount)
             {
                 numTiles = options->cells[i]->oam[j+1].attr2.CharName - options->cells[i]->oam[j].attr2.CharName;
-                numTiles *= options->mappingType + 1;
+                numTiles *= tileModifier;
             }
             else
             {
-                numTiles = maxTiles / options->cellCount - options->cells[i]->oam[j].attr2.CharName * (options->mappingType + 1);
+                numTiles = maxTiles / options->cellCount - options->cells[i]->oam[j].attr2.CharName * tileModifier;
+            }
+
+            if (options->mappingType == 2)
+            {
+                numTiles /=2;
             }
 
             switch (options->cells[i]->oam[j].attr0.Shape)
@@ -589,6 +595,12 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                 oamHeight = sqrt(numTiles * 2);
                 oamWidth = oamHeight / 2;
                 break;
+            }
+
+            if (options->mappingType == 2)
+            {
+                numTiles *= 2;
+                oamWidth *= 2;
             }
 
             int x = options->cells[i]->oam[j].attr1.XCoordinate; // 8 bits
@@ -623,17 +635,23 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         newheight = endY - startY + lastYPixels;
         newwidth = endX - startX + lastXPixels;
-        
+        printf("x = %d, y = %d\n", newwidth, newheight);
+
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
             if (j+1 < options->cells[i]->oamCount)
             {
                 numTiles = options->cells[i]->oam[j+1].attr2.CharName - options->cells[i]->oam[j].attr2.CharName;
-                numTiles *= options->mappingType + 1;
+                numTiles *= tileModifier;
             }
             else
             {
-                numTiles = maxTiles / options->cellCount - options->cells[i]->oam[j].attr2.CharName * (options->mappingType + 1);
+                numTiles = maxTiles / options->cellCount - options->cells[i]->oam[j].attr2.CharName * tileModifier;
+            }
+
+            if (options->mappingType == 2)
+            {
+                numTiles /=2;
             }
 
             switch (options->cells[i]->oam[j].attr0.Shape)
@@ -652,6 +670,12 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                 break;
             }
 
+            if (options->mappingType == 2)
+            {
+                numTiles *= 2;
+                oamWidth *= 2;
+            }
+
             int x = options->cells[i]->oam[j].attr1.XCoordinate; // 8 bits
             if ((x & 0x80) != 0)
             {
@@ -668,7 +692,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             switch (image->bitDepth)
             {
                 case 4:
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * (options->mappingType + 1) * 32 + newheight * newwidth / 2 * i;
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * tileModifier * 32 + newheight * newwidth / 2 * i;
                     if (toPNG)
                     {
                         ConvertFromTiles4BppNCER(image->pixels + pixelOffset, newPixels, numTiles, oamWidth, newwidth, x, y + i * newheight, true);
@@ -680,7 +704,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                     
                     break;
                 case 8:
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * (options->mappingType + 1) * 64 + newheight * newwidth * i;
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * tileModifier * 64 + newheight * newwidth * i;
                     if (toPNG)
                     {
                         ConvertFromTiles8BppNCER(image->pixels + pixelOffset, newPixels, numTiles, oamWidth, newwidth, x, y + i * newheight, true);
