@@ -635,7 +635,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         newheight = endY - startY + lastYPixels;
         newwidth = endX - startX + lastXPixels;
-        printf("x = %d, y = %d\n", newwidth, newheight);
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
