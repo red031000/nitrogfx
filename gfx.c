@@ -595,10 +595,16 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
         else
         {
-            newheight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-            newwidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+            if (options->cells[i]->attributes.boundingRect)
+            {
+                newheight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+                newwidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+            }
+            else
+            {
+                FATAL_ERROR("No bounding rectangle. Incompatible NCER\n");
+            }
         }
-        int tilesUsed = 0;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
@@ -712,9 +718,18 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
-    image->pixels = newPixels;
-    image->height = outputHeight;
-    image->width = outputWidth;
+    if (toPNG)
+    {
+        image->pixels = newPixels;
+        image->height = outputHeight;
+        image->width = outputWidth;
+    }
+    else
+    {
+        image->pixels = newPixels;
+        image->height = imageSize / 8;
+        image->width = 8;
+    }
 }
 
 void WriteImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors)
