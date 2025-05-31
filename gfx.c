@@ -588,7 +588,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     unsigned char *newPixels = malloc(imageSize);
     memset(newPixels, 0, imageSize);
 
-    for (int i = 0; i < options->cellCount && outputHeight * outputWidth < image->height * image->width; i++)
+    for (int i = 0; i < options->cellCount && outputHeight * outputWidth < imageSize; i++)
     {
         int cellHeight = 0;
         int cellWidth = 0;
