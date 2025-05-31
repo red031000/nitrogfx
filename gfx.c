@@ -114,7 +114,7 @@ static void ConvertFromTiles4Bpp(unsigned char *src, unsigned char *dest, int nu
     }
 }
 
-static void ConvertFromTiles4BppNCER(unsigned char *src, unsigned char *dest, int numTiles, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool toPNG, bool hFlip, bool vFlip)
+static void ConvertFromTiles4BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool toPNG)
 {
     int tilesSoFar = 0;
     int rowsSoFar = 0;
@@ -122,7 +122,7 @@ static void ConvertFromTiles4BppNCER(unsigned char *src, unsigned char *dest, in
     int chunkStartY = 0;
     int pitch = imageWidth / 2;
 
-    for (int i = 0; i < numTiles; i++) {
+    for (int i = 0; i < oamHeight * oamWidth; i++) {
         for (int j = 0; j < 8; j++) {
             int idxComponentY = (chunkStartY + rowsSoFar) * 8 + j + startY;
             if (vFlip)
@@ -173,36 +173,6 @@ static void ConvertFromTiles4BppNCER(unsigned char *src, unsigned char *dest, in
         }
 
         AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, oamWidth, 1, 1);
-    }
-}
-
-static void ConvertFromTiles8BppNCER(unsigned char *src, unsigned char *dest, int numTiles, int chunksWide, int imageWidth, int startX, int startY, bool toPNG)
-{
-    int tilesSoFar = 0;
-    int rowsSoFar = 0;
-    int chunkStartX = 0;
-    int chunkStartY = 0;
-    int pitch = chunksWide;
-
-    for (int i = 0; i < numTiles; i++) {
-        for (int j = 0; j < 8; j++) {
-            int idxComponentY = (chunkStartY + rowsSoFar) * 8 + j + startY;
-
-            for (int k = 0; k < 8; k++) {
-                int idxComponentX = (chunkStartX + tilesSoFar) * 8 + k + startX;
-
-                if (toPNG)
-                {
-                    dest[idxComponentY * pitch + idxComponentX] = *src++;
-                }
-                else
-                {
-                    *dest++ = src[idxComponentY * pitch + idxComponentX];
-                }
-            }
-        }
-
-        AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, chunksWide, 1, 1);
     }
 }
 
@@ -272,6 +242,44 @@ static void ConvertFromTiles8Bpp(unsigned char *src, unsigned char *dest, int nu
         }
 
         AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, chunksWide, colsPerChunk, rowsPerChunk);
+    }
+}
+
+static void ConvertFromTiles8BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool toPNG)
+{
+    int tilesSoFar = 0;
+    int rowsSoFar = 0;
+    int chunkStartX = 0;
+    int chunkStartY = 0;
+    int pitch = imageWidth;
+
+    for (int i = 0; i < oamHeight * oamWidth; i++) {
+        for (int j = 0; j < 8; j++) {
+            int idxComponentY = (chunkStartY + rowsSoFar) * 8 + j + startY;
+            if (vFlip)
+            {
+                idxComponentY = (rowsSoFar + oamHeight - chunkStartY) * 8 + j + startY;
+            }
+
+            for (int k = 0; k < 8; k++) {
+                int idxComponentX = (chunkStartX + tilesSoFar) * 8 + k + startX;
+                if (hFlip)
+                {
+                    idxComponentX = (tilesSoFar + oamWidth - chunkStartX) * 4 + - k + startX;
+                }
+
+                if (toPNG)
+                {
+                    dest[idxComponentY * pitch + idxComponentX] = *src++;
+                }
+                else
+                {
+                    *dest++ = src[idxComponentY * pitch + idxComponentX];
+                }
+            }
+        }
+
+        AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, oamWidth, 1, 1);
     }
 }
 
@@ -574,31 +582,26 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
     ReadNtrCell(cellFilePath, options);
 
-    int numTiles;
-    int oamHeight;
-    int oamWidth;
-    int newheight = 0;
-    int newwidth = 0;
     int outputHeight = 0;
     int outputWidth = 0;
-    int pixelOffset = 0;
     int imageSize = image->height * image->width;
     unsigned char *newPixels = malloc(imageSize);
     memset(newPixels, 0, imageSize);
 
     for (int i = 0; i < options->cellCount && outputHeight * outputWidth < image->height * image->width; i++)
     {
+        int cellHeight = 0;
+        int cellWidth = 0;
         if (options->cells[i]->oamCount == 0)
         {
-            newheight = 0;
-            newwidth = 0;
+            continue;
         }
         else
         {
             if (options->cells[i]->attributes.boundingRect)
             {
-                newheight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-                newwidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+                cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+                cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
             }
             else
             {
@@ -608,6 +611,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
+            int oamHeight;
+            int oamWidth;
             switch (options->cells[i]->oam[j].attr0.Shape)
             {
             case 0:
@@ -657,7 +662,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                 }
                 break;
             }
-            numTiles = oamHeight * oamWidth;
 
             int x = options->cells[i]->oam[j].attr1.XCoordinate; // 8 bits
             if ((x & 0x80) != 0)
@@ -672,50 +676,48 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             x -= options->cells[i]->minX;
             y -= options->cells[i]->minY;
 
+            int pixelOffset = 0;
+            switch (options->mappingType)
+            {
+                case 0:
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 32;
+                    break;
+                case 1:
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + outputHeight * outputWidth / 2;
+                    break;
+                case 2:
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 128;
+                    break;
+            }
+
             switch (image->bitDepth)
             {
                 case 4:
-                    switch (options->mappingType)
-                    {
-                        case 0:
-                            pixelOffset = options->cells[i]->oam[j].attr2.CharName * 32;
-                            break;
-                        case 1:
-                            pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + outputHeight * outputWidth / 2;
-                            break;
-                        case 2:
-                            pixelOffset = options->cells[i]->oam[j].attr2.CharName * 128;
-                            break;
-                    }
                     if (toPNG)
                     {
-                        ConvertFromTiles4BppNCER(image->pixels + pixelOffset, newPixels, numTiles, oamWidth, oamHeight, newwidth, x, y + outputHeight, true, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip);
+                        ConvertFromTiles4BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, cellWidth, x, y + outputHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles4BppNCER(image->pixels, newPixels + pixelOffset, numTiles, oamWidth, oamHeight, newwidth, x, y + i * newheight, false, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip);
+                        ConvertFromTiles4BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, cellWidth, x, y + i * cellHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
                     }
                     break;
                 case 8:
-                    // TODO
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + newheight * newwidth * i;
+                    pixelOffset *= 2;
                     if (toPNG)
                     {
-                        ConvertFromTiles8BppNCER(image->pixels + pixelOffset, newPixels, numTiles, oamWidth, newwidth, x, y + i * newheight, true);
+                        ConvertFromTiles8BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, cellWidth, x, y + outputHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles8BppNCER(image->pixels, newPixels + pixelOffset, numTiles, oamWidth, newwidth, x, y + i * newheight, false);
+                        ConvertFromTiles8BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, cellWidth, x, y + i * cellHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
                     }
                     break;
             }
         }
 
-        outputHeight += newheight;
-        if (newwidth > outputWidth)
-        {
-            outputWidth = newwidth;
-        }
+        outputHeight += cellHeight;
+        outputWidth = cellWidth;
     }
 
     if (toPNG)
