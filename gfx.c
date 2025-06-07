@@ -584,30 +584,47 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
     int outputHeight = 0;
     int outputWidth = 0;
+    int numTiles = 0;
     int imageSize = image->height * image->width;
-    unsigned char *newPixels = malloc(imageSize);
-    memset(newPixels, 0, imageSize);
 
-    for (int i = 0; i < options->cellCount && outputHeight * outputWidth < imageSize; i++)
+    for (int i = 0; i < options->cellCount; i++)
     {
-        int cellHeight = 0;
-        int cellWidth = 0;
         if (options->cells[i]->oamCount == 0)
         {
             continue;
         }
+        int cellHeight = 0;
+        int cellWidth = 0;
+        if (options->cells[i]->attributes.boundingRect)
+        {
+            cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+            cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+        }
         else
         {
-            if (options->cells[i]->attributes.boundingRect)
-            {
-                cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-                cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
-            }
-            else
-            {
-                FATAL_ERROR("No bounding rectangle. Incompatible NCER\n");
-            }
+            FATAL_ERROR("No bounding rectangle. Incompatible NCER\n");
         }
+
+        outputHeight += cellHeight;
+        if (outputWidth < cellWidth)
+        {
+            outputWidth = cellWidth;
+        }
+    }
+
+    unsigned char *newPixels = malloc(outputHeight * outputWidth);
+    memset(newPixels, 0, outputHeight * outputWidth);
+
+    int scanHeight = 0;
+    int maxTile = 0;
+    for (int i = 0; i < options->cellCount; i++)
+    {
+        if (options->cells[i]->oamCount == 0)
+        {
+            continue;
+        }
+        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+        int cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
@@ -681,12 +698,23 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             {
                 case 0:
                     pixelOffset = options->cells[i]->oam[j].attr2.CharName * 32;
+                    maxTile = options->cells[i]->oam[j].attr2.CharName + oamHeight * oamWidth;
+                    if (maxTile > numTiles)
+                    {
+                        numTiles = maxTile;
+                    }
                     break;
                 case 1:
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + outputHeight * outputWidth / 2;
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + scanHeight * outputWidth / 2;
+                    numTiles += oamHeight * oamWidth;
                     break;
                 case 2:
                     pixelOffset = options->cells[i]->oam[j].attr2.CharName * 128;
+                    maxTile = options->cells[i]->oam[j].attr2.CharName * 4 + oamHeight * oamWidth;
+                    if (maxTile > numTiles)
+                    {
+                        numTiles = maxTile;
+                    }
                     break;
             }
 
@@ -695,29 +723,28 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                 case 4:
                     if (toPNG)
                     {
-                        ConvertFromTiles4BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, cellWidth, x, y + outputHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
+                        ConvertFromTiles4BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles4BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, cellWidth, x, y + i * cellHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
+                        ConvertFromTiles4BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
                     }
                     break;
                 case 8:
                     pixelOffset *= 2;
                     if (toPNG)
                     {
-                        ConvertFromTiles8BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, cellWidth, x, y + outputHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
+                        ConvertFromTiles8BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles8BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, cellWidth, x, y + i * cellHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
+                        ConvertFromTiles8BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
                     }
                     break;
             }
         }
 
-        outputHeight += cellHeight;
-        outputWidth = cellWidth;
+        scanHeight += cellHeight;
     }
 
     if (toPNG)
@@ -729,7 +756,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     else
     {
         image->pixels = newPixels;
-        image->height = imageSize / 8;
+        image->height = numTiles * 8;
         image->width = 8;
     }
 }
