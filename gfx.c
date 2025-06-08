@@ -114,7 +114,7 @@ static void ConvertFromTiles4Bpp(unsigned char *src, unsigned char *dest, int nu
     }
 }
 
-static void ConvertFromTiles4BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool toPNG)
+static void ConvertFromTiles4BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool hvFlip, bool toPNG)
 {
     int tilesSoFar = 0;
     int rowsSoFar = 0;
@@ -129,13 +129,17 @@ static void ConvertFromTiles4BppCell(unsigned char *src, unsigned char *dest, in
             {
                 idxComponentY = (rowsSoFar + oamHeight - chunkStartY) * 8 + j + startY;
             }
+            if (hvFlip)
+            {
+                idxComponentY += 8 - j * 2;
+            }
 
             for (int k = 0; k < 4; k++) {
                 int idxComponentX = (chunkStartX + tilesSoFar) * 4 + k + startX/2;
 
                 if (hFlip)
                 {
-                    idxComponentX = (tilesSoFar + oamWidth - chunkStartX) * 4 + - k + startX/2;
+                    idxComponentX = (tilesSoFar + oamWidth - chunkStartX) * 4 + - k + startX/2 - 1;
 
                     unsigned char srcPixelPair = *src;
                     unsigned char leftPixel = srcPixelPair & 0xF;
@@ -245,7 +249,7 @@ static void ConvertFromTiles8Bpp(unsigned char *src, unsigned char *dest, int nu
     }
 }
 
-static void ConvertFromTiles8BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool toPNG)
+static void ConvertFromTiles8BppCell(unsigned char *src, unsigned char *dest, int oamWidth, int oamHeight, int imageWidth, int startX, int startY, bool hFlip, bool vFlip, bool hvFlip, bool toPNG)
 {
     int tilesSoFar = 0;
     int rowsSoFar = 0;
@@ -259,6 +263,10 @@ static void ConvertFromTiles8BppCell(unsigned char *src, unsigned char *dest, in
             if (vFlip)
             {
                 idxComponentY = (rowsSoFar + oamHeight - chunkStartY) * 8 + j + startY;
+            }
+            if (hvFlip)
+            {
+                idxComponentY += 8 - j * 2;
             }
 
             for (int k = 0; k < 8; k++) {
@@ -585,7 +593,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     int outputHeight = 0;
     int outputWidth = 0;
     int numTiles = 0;
-    int imageSize = image->height * image->width;
 
     for (int i = 0; i < options->cellCount; i++)
     {
@@ -610,21 +617,31 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         {
             outputWidth = cellWidth;
         }
+        if (i)
+        {
+            outputHeight++;
+        }
     }
 
     unsigned char *newPixels = malloc(outputHeight * outputWidth);
-    memset(newPixels, 0, outputHeight * outputWidth);
+    memset(newPixels, 255, outputHeight * outputWidth);
 
     int scanHeight = 0;
     int maxTile = 0;
+    int tileMask[outputHeight * outputWidth]; // check for unused (starting) tiles
     for (int i = 0; i < options->cellCount; i++)
     {
         if (options->cells[i]->oamCount == 0)
         {
             continue;
         }
+        if (i)
+        {
+            scanHeight++;
+        }
         int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
         int cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+        int uniqueOAMs = options->cells[i]->oamCount;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
@@ -703,9 +720,15 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                     {
                         numTiles = maxTile;
                     }
+                    if (tileMask[options->cells[i]->oam[j].attr2.CharName])
+                    {
+                        uniqueOAMs--;
+                        continue;
+                    }
+                    tileMask[options->cells[i]->oam[j].attr2.CharName]++;
                     break;
                 case 1:
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + scanHeight * outputWidth / 2;
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + (scanHeight - i) * outputWidth / 2;
                     numTiles += oamHeight * oamWidth;
                     break;
                 case 2:
@@ -715,36 +738,58 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                     {
                         numTiles = maxTile;
                     }
+                    if (tileMask[options->cells[i]->oam[j].attr2.CharName])
+                    {
+                        uniqueOAMs--;
+                        continue;
+                    }
+                    tileMask[options->cells[i]->oam[j].attr2.CharName]++;
                     break;
             }
+            bool rotationScaling = options->cells[i]->oam[j].attr1.RotationScaling;
+            bool hFlip = options->cells[i]->attributes.hFlip && rotationScaling;
+            bool vFlip = options->cells[i]->attributes.vFlip && rotationScaling;
+            bool hvFlip = options->cells[i]->attributes.hvFlip && rotationScaling;
 
             switch (image->bitDepth)
             {
                 case 4:
                     if (toPNG)
                     {
-                        ConvertFromTiles4BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
+                        ConvertFromTiles4BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, hFlip, vFlip, hvFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles4BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
+                        ConvertFromTiles4BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, hFlip, vFlip, hvFlip, false);
                     }
                     break;
                 case 8:
                     pixelOffset *= 2;
                     if (toPNG)
                     {
-                        ConvertFromTiles8BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, true);
+                        ConvertFromTiles8BppCell(image->pixels + pixelOffset, newPixels, oamWidth, oamHeight, outputWidth, x, y + scanHeight, hFlip, vFlip, hvFlip, true);
                     }
                     else
                     {
-                        ConvertFromTiles8BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, options->cells[i]->attributes.hFlip, options->cells[i]->attributes.vFlip, false);
+                        ConvertFromTiles8BppCell(image->pixels, newPixels + pixelOffset, oamWidth, oamHeight, outputWidth, x, y + scanHeight, hFlip, vFlip, hvFlip, false);
                     }
                     break;
             }
         }
 
-        scanHeight += cellHeight;
+        if (uniqueOAMs == 0)
+        {
+            outputHeight -= cellHeight;
+            if (i)
+            {
+                scanHeight--;
+                outputHeight--;
+            }
+        }
+        else
+        {
+            scanHeight += cellHeight;
+        }
     }
 
     if (toPNG)
