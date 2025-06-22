@@ -1264,7 +1264,7 @@ void HandleJsonToNtrAnimationCommand(char *inputPath, char *outputPath, int argc
     FreeNANRAnimation(options);
 }
 
-void HandleJsonToNtrAnimationLzCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+void HandleJsonToNtrAnimationLzCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
     HandleJsonToNtrAnimationCommand(inputPath, outputPath, argc, argv);
 
