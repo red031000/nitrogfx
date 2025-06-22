@@ -56,6 +56,17 @@ char *GetFileExtension(char *path)
     if (*extension == 0)
         return NULL;
 
+    if (strcmp(extension,"lz") == 0)
+    {
+        char *plainName = malloc(strlen(path)+1);
+        strcpy(plainName, path);
+        plainName[strlen(path) - 3] = 0;
+        plainName = GetFileExtension(plainName);
+        if (plainName != NULL)
+            return strcat(plainName,".lz");
+        free(plainName);
+    }
+
     return extension;
 }
 

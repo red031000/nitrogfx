@@ -23,6 +23,180 @@ struct CommandHandler
     void(*function)(char *inputPath, char *outputPath, int argc, char **argv);
 };
 
+void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    int overflowSize = 0;
+    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
+    bool forwardIteration = true;
+    bool nopad = false;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-overflow") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
+                FATAL_ERROR("Failed to parse overflow size.\n");
+
+            if (overflowSize < 1)
+                FATAL_ERROR("Overflow size must be positive.\n");
+        }
+        else if (strcmp(option, "-search") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
+                FATAL_ERROR("Failed to parse LZ min search distance.\n");
+
+            if (minDistance < 1)
+                FATAL_ERROR("LZ min search distance must be positive.\n");
+        }
+        else if (strcmp(option, "-reverse") == 0)
+        {
+            forwardIteration = false;
+        }
+        else if (strcmp(option, "-nopad") == 0)
+        {
+            nopad = true;
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
+
+    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
+    // to be reproduced. It works by appending a number of zeros to the data
+    // before compressing it and then amending the LZ header's size field to
+    // reflect the expected size. This will cause an overflow when decompressing
+    // the data.
+
+    int fileSize;
+    unsigned char *buffer = ReadWholeFileZeroPadded(inputPath, &fileSize, overflowSize);
+
+    int compressedSize;
+    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
+
+    compressedData[1] = (unsigned char)fileSize;
+    compressedData[2] = (unsigned char)(fileSize >> 8);
+    compressedData[3] = (unsigned char)(fileSize >> 16);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = LZDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
+}
+
+void HandleRLCompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int compressedSize;
+    unsigned char *compressedData = RLCompress(buffer, fileSize, &compressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+void HandleRLDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = RLDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
+}
+
+void HandleHuffCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    int fileSize;
+    int bitDepth = 4;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-depth") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-depth\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &bitDepth))
+                FATAL_ERROR("Failed to parse bit depth.\n");
+
+            if (bitDepth != 4 && bitDepth != 8)
+                FATAL_ERROR("GBA only supports bit depth of 4 or 8.\n");
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
+
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int compressedSize;
+    unsigned char *compressedData = HuffCompress(buffer, fileSize, &compressedSize, bitDepth);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+void HandleHuffDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = HuffDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
+}
+
 void ConvertGbaToPng(char *inputPath, char *outputPath, struct GbaToPngOptions *options)
 {
     struct Image image;
@@ -352,6 +526,13 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     ConvertNtrToPng(inputPath, outputPath, &options);
 }
 
+void HandleNtrLzToPngCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    HandleLZDecompressCommand(inputPath, outputPath, argc, argv);
+
+    HandleNtrToPngCommand(outputPath, outputPath, argc, argv);
+}
+
 void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
     char *outputFileExtension = GetFileExtension(outputPath);
@@ -548,6 +729,199 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
     }
 
     ConvertPngToNtr(inputPath, outputPath, &options);
+}
+
+void HandlePngToNtrLzCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    struct PngToNtrOptions optionsNTR;
+    optionsNTR.numTiles = 0;
+    optionsNTR.bitDepth = 0;
+    optionsNTR.colsPerChunk = 1;
+    optionsNTR.rowsPerChunk = 1;
+    optionsNTR.wrongSize = false;
+    optionsNTR.clobberSize = false;
+    optionsNTR.byteOrder = true;
+    optionsNTR.version101 = false;
+    optionsNTR.sopc = false;
+    optionsNTR.scanMode = 0;
+    optionsNTR.handleEmpty = false;
+    optionsNTR.vramTransfer = false;
+    optionsNTR.mappingType = 0;
+    
+    int overflowSize = 0;
+    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
+    bool forwardIteration = true;
+    bool nopad = false;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-num_tiles") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No number of tiles following \"-num_tiles\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.numTiles))
+                FATAL_ERROR("Failed to parse number of tiles.\n");
+
+            if (optionsNTR.numTiles < 1)
+                FATAL_ERROR("Number of tiles must be positive.\n");
+        }
+        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.colsPerChunk))
+                FATAL_ERROR("Failed to parse columns per chunk.\n");
+
+            if (optionsNTR.colsPerChunk < 1)
+                FATAL_ERROR("columns per chunk must be positive.\n");
+        }
+        else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0) {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No rows per chunk value following \"%s\".\n", option);
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.rowsPerChunk))
+                FATAL_ERROR("Failed to parse rows per chunk.\n");
+
+            if (optionsNTR.rowsPerChunk < 1)
+                FATAL_ERROR("rows per chunk must be positive.\n");
+        }
+        else if (strcmp(option, "-bitdepth") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No bitdepth value following \"-bitdepth\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.bitDepth))
+                FATAL_ERROR("Failed to parse bitdepth.\n");
+
+            if (optionsNTR.bitDepth != 4 && optionsNTR.bitDepth != 8)
+                FATAL_ERROR("bitdepth must be either 4 or 8.\n");
+        }
+        else if (strcmp(option, "-clobbersize") == 0)
+        {
+            optionsNTR.clobberSize = true;
+        }
+        else if (strcmp(option, "-nobyteorder") == 0)
+        {
+            optionsNTR.byteOrder = false;
+        }
+        else if (strcmp(option, "-version101") == 0)
+        {
+            optionsNTR.version101 = true;
+        }
+        else if (strcmp(option, "-sopc") == 0)
+        {
+            optionsNTR.sopc = true;
+        }
+        else if (strcmp(option, "-scanned") == 0)
+        {
+            if (optionsNTR.scanMode != 0)
+                FATAL_ERROR("Scan mode specified more than once.\n-scanned goes back to front as in DP, -scanfronttoback goes front to back as in PtHGSS\n");
+            optionsNTR.scanMode = 1;
+        }
+        else if (strcmp(option, "-scanfronttoback") == 0)
+        {
+            if (optionsNTR.scanMode != 0)
+                FATAL_ERROR("Scan mode specified more than once.\n-scanned goes back to front as in DP, -scanfronttoback goes front to back as in PtHGSS\n");
+            optionsNTR.scanMode = 2;
+        }
+        else if (strcmp(option, "-wrongsize") == 0) {
+            optionsNTR.wrongSize = true;
+        }
+        else if (strcmp(option, "-handleempty") == 0)
+        {
+            optionsNTR.handleEmpty = true;
+        }
+        else if (strcmp(option, "-vram") == 0)
+        {
+            optionsNTR.vramTransfer = true;
+        }
+        else if (strcmp(option, "-mappingtype") == 0) {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No mapping type value following \"-mappingtype\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.mappingType))
+                FATAL_ERROR("Failed to parse mapping type.\n");
+
+            if (optionsNTR.mappingType != 0 && optionsNTR.mappingType != 32 && optionsNTR.mappingType != 64 && optionsNTR.mappingType != 128 && optionsNTR.mappingType != 256)
+                FATAL_ERROR("bitdepth must be one of the following: 0, 32, 64, 128, or 256\n");
+        }
+        else if (strcmp(option, "-overflow") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
+                FATAL_ERROR("Failed to parse overflow size.\n");
+
+            if (overflowSize < 1)
+                FATAL_ERROR("Overflow size must be positive.\n");
+        }
+        else if (strcmp(option, "-search") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
+                FATAL_ERROR("Failed to parse LZ min search distance.\n");
+
+            if (minDistance < 1)
+                FATAL_ERROR("LZ min search distance must be positive.\n");
+        }
+        else if (strcmp(option, "-reverse") == 0)
+        {
+            forwardIteration = false;
+        }
+        else if (strcmp(option, "-nopad") == 0)
+        {
+            nopad = true;
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
+
+    ConvertPngToNtr(inputPath, outputPath, &optionsNTR);
+
+    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
+    // to be reproduced. It works by appending a number of zeros to the data
+    // before compressing it and then amending the LZ header's size field to
+    // reflect the expected size. This will cause an overflow when decompressing
+    // the data.
+
+    int fileSize;
+    unsigned char *buffer = ReadWholeFileZeroPadded(outputPath, &fileSize, overflowSize);
+
+    int compressedSize;
+    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
+
+    compressedData[1] = (unsigned char)fileSize;
+    compressedData[2] = (unsigned char)(fileSize >> 8);
+    compressedData[3] = (unsigned char)(fileSize >> 16);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
 }
 
 void HandlePngToGbaPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -812,6 +1186,13 @@ void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUS
     FreeNCERCell(options);
 }
 
+void HandleJsonToNtrCellLzCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    HandleJsonToNtrCellCommand(inputPath, outputPath, argc, argv);
+
+    HandleLZCompressCommand(outputPath, outputPath, argc, argv);
+}
+
 void HandleNtrCellToJsonCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
 {
     struct JsonToCellOptions *options = malloc(sizeof(struct JsonToCellOptions));
@@ -823,6 +1204,13 @@ void HandleNtrCellToJsonCommand(char *inputPath, char *outputPath, int argc UNUS
     WriteWholeStringToFile(outputPath, json);
 
     FreeNCERCell(options);
+}
+
+void HandleNtrCellLzToJsonCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    HandleLZDecompressCommand(inputPath, outputPath, argc, argv);
+
+    HandleNtrCellToJsonCommand(outputPath, outputPath, argc, argv);
 }
 
 void HandleJsonToNtrScreenCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -876,6 +1264,13 @@ void HandleJsonToNtrAnimationCommand(char *inputPath, char *outputPath, int argc
     FreeNANRAnimation(options);
 }
 
+void HandleJsonToNtrAnimationLzCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    HandleJsonToNtrAnimationCommand(inputPath, outputPath, argc, argv);
+
+    HandleLZCompressCommand(outputPath, outputPath, argc, argv);
+}
+
 void HandleNtrAnimationToJsonCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
 {
     struct JsonToAnimationOptions *options = malloc(sizeof(struct JsonToAnimationOptions));
@@ -887,6 +1282,13 @@ void HandleNtrAnimationToJsonCommand(char *inputPath, char *outputPath, int argc
     WriteWholeStringToFile(outputPath, json);
 
     FreeNANRAnimation(options);
+}
+
+void HandleNtrAnimationLzToJsonCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    HandleLZDecompressCommand(inputPath, outputPath, argc, argv);
+
+    HandleNtrAnimationToJsonCommand(outputPath, outputPath, argc, argv);
 }
 
 void HandleJsonToNtrMulticellAnimationCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -966,180 +1368,6 @@ void HandlePngToFullwidthJapaneseFontCommand(char *inputPath, char *outputPath, 
     WriteFullwidthJapaneseFont(outputPath, &image);
 
     FreeImage(&image);
-}
-
-void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
-{
-    int overflowSize = 0;
-    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
-    bool forwardIteration = true;
-    bool nopad = false;
-
-    for (int i = 3; i < argc; i++)
-    {
-        char *option = argv[i];
-
-        if (strcmp(option, "-overflow") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
-                FATAL_ERROR("Failed to parse overflow size.\n");
-
-            if (overflowSize < 1)
-                FATAL_ERROR("Overflow size must be positive.\n");
-        }
-        else if (strcmp(option, "-search") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
-                FATAL_ERROR("Failed to parse LZ min search distance.\n");
-
-            if (minDistance < 1)
-                FATAL_ERROR("LZ min search distance must be positive.\n");
-        }
-        else if (strcmp(option, "-reverse") == 0)
-        {
-            forwardIteration = false;
-        }
-        else if (strcmp(option, "-nopad") == 0)
-        {
-            nopad = true;
-        }
-        else
-        {
-            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
-        }
-    }
-
-    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
-    // to be reproduced. It works by appending a number of zeros to the data
-    // before compressing it and then amending the LZ header's size field to
-    // reflect the expected size. This will cause an overflow when decompressing
-    // the data.
-
-    int fileSize;
-    unsigned char *buffer = ReadWholeFileZeroPadded(inputPath, &fileSize, overflowSize);
-
-    int compressedSize;
-    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
-
-    compressedData[1] = (unsigned char)fileSize;
-    compressedData[2] = (unsigned char)(fileSize >> 8);
-    compressedData[3] = (unsigned char)(fileSize >> 16);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = LZDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
-}
-
-void HandleRLCompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int compressedSize;
-    unsigned char *compressedData = RLCompress(buffer, fileSize, &compressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleRLDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = RLDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
-}
-
-void HandleHuffCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
-{
-    int fileSize;
-    int bitDepth = 4;
-
-    for (int i = 3; i < argc; i++)
-    {
-        char *option = argv[i];
-
-        if (strcmp(option, "-depth") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-depth\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &bitDepth))
-                FATAL_ERROR("Failed to parse bit depth.\n");
-
-            if (bitDepth != 4 && bitDepth != 8)
-                FATAL_ERROR("GBA only supports bit depth of 4 or 8.\n");
-        }
-        else
-        {
-            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
-        }
-    }
-
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int compressedSize;
-    unsigned char *compressedData = HuffCompress(buffer, fileSize, &compressedSize, bitDepth);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleHuffDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = HuffDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
 }
 
 void HandleNtrFontToPngCommand(char *inputPath, char *outputPath, int argc, char **argv)
@@ -1223,11 +1451,13 @@ int main(int argc, char **argv)
         { "8bpp", "png", HandleGbaToPngCommand },
         { "nbfc", "png", HandleGbaToPngCommand },
         { "NCGR", "png", HandleNtrToPngCommand },
+        { "NCGR.lz", "png", HandleNtrLzToPngCommand },
         { "png", "1bpp", HandlePngToGbaCommand },
         { "png", "4bpp", HandlePngToGbaCommand },
         { "png", "nbfc", HandlePngToGbaCommand },
         { "png", "8bpp", HandlePngToGbaCommand },
         { "png", "NCGR", HandlePngToNtrCommand },
+        { "png", "NCGR.lz", HandlePngToNtrLzCommand },
         { "png", "gbapal", HandlePngToGbaPaletteCommand },
         { "png", "nbfp", HandlePngToGbaPaletteCommand },
         { "png", "NCLR", HandlePngToNtrPaletteCommand },
@@ -1243,10 +1473,14 @@ int main(int argc, char **argv)
         { "fwjpnfont", "png", HandleFullwidthJapaneseFontToPngCommand },
         { "png", "fwjpnfont", HandlePngToFullwidthJapaneseFontCommand },
         { "json", "NCER", HandleJsonToNtrCellCommand },
+        { "json", "NCER.lz", HandleJsonToNtrCellLzCommand },
         { "NCER", "json", HandleNtrCellToJsonCommand },
+        { "NCER.lz", "json", HandleNtrCellLzToJsonCommand },
         { "json", "NSCR", HandleJsonToNtrScreenCommand },
         { "json", "NANR", HandleJsonToNtrAnimationCommand },
+        { "json", "NANR.lz", HandleJsonToNtrAnimationLzCommand },
         { "NANR", "json", HandleNtrAnimationToJsonCommand },
+        { "NANR.lz", "json", HandleNtrAnimationLzToJsonCommand },
         { "json", "NMAR", HandleJsonToNtrMulticellAnimationCommand },
         { "NMAR", "json", HandleNtrAnimationToJsonCommand },
         { NULL, "huff", HandleHuffCompressCommand },
@@ -1274,7 +1508,9 @@ int main(int argc, char **argv)
     for (int i = 0; handlers[i].function != NULL; i++)
     {
         if ((handlers[i].inputFileExtension == NULL || strcmp(handlers[i].inputFileExtension, inputFileExtension) == 0)
-            && (handlers[i].outputFileExtension == NULL || strcmp(handlers[i].outputFileExtension, outputFileExtension) == 0))
+            && (handlers[i].outputFileExtension == NULL || strcmp(handlers[i].outputFileExtension, outputFileExtension) == 0)
+            || (handlers[i].inputFileExtension == NULL && strrchr(outputFileExtension, '.') && strstr(outputFileExtension, handlers[i].outputFileExtension))
+            || (handlers[i].outputFileExtension == NULL && strrchr(inputFileExtension, '.') && strstr(inputFileExtension, handlers[i].inputFileExtension)))
         {
             handlers[i].function(inputPath, outputPath, argc, argv);
             return 0;
