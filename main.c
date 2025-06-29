@@ -49,10 +49,9 @@ void ConvertGbaToPng(char *inputPath, char *outputPath, struct GbaToPngOptions *
 void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *options)
 {
     // handle empty files if possible
-    FILE *fp = fopen(inputPath, "rb");
-
     if (options->handleEmpty)
     {
+        FILE *fp = fopen(inputPath, "rb");
         if (fp != NULL)
         {
             fseek(fp, 0, SEEK_END);
@@ -61,14 +60,16 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
             if (size == 0)
             {
                 FILE *out = fopen(outputPath, "wb+");
-                fclose(out);
+                if (out != NULL)
+                {
+                    fclose(out);
+                }
                 fclose(fp);
                 return;
             }
+            fclose(fp);
         }
     }
-
-    fclose(fp);
 
     struct Image image;
 
@@ -119,10 +120,9 @@ void ConvertPngToGba(char *inputPath, char *outputPath, struct PngToGbaOptions *
 void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *options)
 {
     // handle empty files if possible
-    FILE *fp = fopen(inputPath, "rb");
-
     if (options->handleEmpty)
     {
+        FILE *fp = fopen(inputPath, "rb");
         if (fp != NULL)
         {
             fseek(fp, 0, SEEK_END);
@@ -131,14 +131,17 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
             if (size == 0)
             {
                 FILE *out = fopen(outputPath, "wb+");
-                fclose(out);
+                if (out != NULL)
+                {
+                    fclose(out);
+                }
                 fclose(fp);
                 return;
             }
+            fclose(fp);
         }
     }
 
-    fclose(fp);
     struct Image image;
 
     image.bitDepth = options->bitDepth == 0 ? 4 : options->bitDepth;
@@ -150,13 +153,13 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
     {
         char* string = malloc(strlen(inputPath) + 5);
         sprintf(string, "%s.key", inputPath);
-        FILE *fp2 = fopen(string, "rb");
-        if (fp2 == NULL)
+        FILE *fp = fopen(string, "rb");
+        if (fp == NULL)
             FATAL_ERROR("Failed to open key file for reading.\n");
-        size_t count = fread(&key, 4, 1, fp2);
+        size_t count = fread(&key, 4, 1, fp);
         if (count != 1)
             FATAL_ERROR("Not a valid key file.\n");
-        fclose(fp2);
+        fclose(fp);
         free(string);
     }
 
