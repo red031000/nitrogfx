@@ -56,12 +56,6 @@ struct CellVramTransferData {
     int size;
 };
 
-struct CellUcatData {
-    int size;
-    short attrPerCell;
-    int *cellAttributes;
-};
-
 struct Attr0 {
     int YCoordinate;
     bool Rotation;
@@ -120,7 +114,7 @@ struct JsonToCellOptions {
     struct CellVramTransferData **transferData;
     char **labels;
     int labelCount;
-    struct CellUcatData ucatData;
+    int *ucatCellAttribtes;
 };
 
 struct JsonToScreenOptions {
@@ -171,15 +165,8 @@ struct AnimationResults {
     };
 };
 
-struct UaatSequences {
-    int seqAttr0;
-    int seqAttr1;
-};
-
 struct UaatData {
-    int size;
-    short attrPerFrame;
-    struct UaatSequences *sequences;
+    int *sequenceAttributes;
     int *frameAttributes;
 };
 
