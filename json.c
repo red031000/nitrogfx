@@ -109,7 +109,7 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
     {
         cJSON *ucatCells = cJSON_GetObjectItemCaseSensitive(json, "cellAttributes");
 
-        options->ucatCellAttribtes = malloc(sizeof(int) * options->cellCount);
+        options->ucatCellAttribtes = malloc(sizeof(uint32_t) * options->cellCount);
 
         for (int i = 0; i < options->cellCount; i++)
         {
@@ -327,7 +327,6 @@ char *GetNCERJson(struct JsonToCellOptions *options)
         {
             cJSON_AddNumberToObject(ucatCells, "cellAttr", options->ucatCellAttribtes[i]);
         }
-        free(options->ucatCellAttribtes);
     }
 
     char *jsonString = cJSON_Print(ncer);
@@ -576,7 +575,7 @@ struct JsonToAnimationOptions *ParseNANRJson(char *path)
         cJSON *uaatData = cJSON_GetObjectItemCaseSensitive(json, "uaatData");
 
         cJSON *uaatSequences = cJSON_GetObjectItemCaseSensitive(uaatData, "sequenceAttributes");
-        options->uaatData.sequenceAttributes = malloc(sizeof(int) * options->sequenceCount);
+        options->uaatData.sequenceAttributes = malloc(sizeof(uint32_t) * options->sequenceCount);
         for (int i = 0; i < options->sequenceCount; i++)
         {
             cJSON *uaatSeq = cJSON_GetArrayItem(uaatSequences, i);
@@ -584,7 +583,7 @@ struct JsonToAnimationOptions *ParseNANRJson(char *path)
         }
 
         cJSON *uaatFrames = cJSON_GetObjectItemCaseSensitive(uaatData, "frameAttributes");
-        options->uaatData.frameAttributes = malloc(sizeof(int) * options->frameCount);
+        options->uaatData.frameAttributes = malloc(sizeof(uint32_t) * options->frameCount);
         for (int i = 0; i < options->frameCount; i++)
         {
             cJSON *uaatFra = cJSON_GetArrayItem(uaatFrames, i);
@@ -681,14 +680,12 @@ char *GetNANRJson(struct JsonToAnimationOptions *options)
         {
             cJSON_AddNumberToObject(uaatSequences, "seqAttr", options->uaatData.sequenceAttributes[i]);
         }
-        free(options->uaatData.sequenceAttributes);
 
         cJSON *uaatFrames = cJSON_AddArrayToObject(uaat, "frameAttributes");
         for (int i = 0; i < options->frameCount; i++)
         {
             cJSON_AddNumberToObject(uaatFrames, "fraAttr", options->uaatData.frameAttributes[i]);
         }
-        free(options->uaatData.frameAttributes);
     }
 
     char *jsonString = cJSON_Print(nanr);
@@ -719,6 +716,10 @@ void FreeNCERCell(struct JsonToCellOptions *options)
         }
         free(options->transferData);
     }
+    if (options->ucatEnabled)
+    {
+        free(options->ucatCellAttribtes);
+    }
     free(options->cells);
     free(options);
 }
@@ -744,6 +745,11 @@ void FreeNANRAnimation(struct JsonToAnimationOptions *options)
     for (int i = 0; i < options->resultCount; i++)
     {
         free(options->animationResults[i]);
+    }
+    if (options->uaatEnabled)
+    {
+        free(options->uaatData.sequenceAttributes);
+        free(options->uaatData.frameAttributes);
     }
     if (options->labelEnabled)
     {

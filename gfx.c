@@ -1032,7 +1032,7 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
     {
         offset = blockOffset + 0x18 + ucatOffset + 0x04 * options->cellCount;
 
-        options->ucatCellAttribtes = malloc(sizeof(int) * options->cellCount);
+        options->ucatCellAttribtes = malloc(sizeof(uint32_t) * options->cellCount);
         for (int i = 0; i < options->cellCount; i++)
         {
             options->ucatCellAttribtes[i] = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
@@ -1284,7 +1284,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     }
 
     // word-aligned
-    while (offset%4 > 0)
+    while (offset % 4 > 0)
     {
         offset += 0x01;
     }
@@ -1324,10 +1324,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     if (options->ucatEnabled)
     {
        // UCAT magic
-        KBECContents[offset] = 0x54;
-        KBECContents[offset + 1] = 0x41;
-        KBECContents[offset + 2] = 0x43;
-        KBECContents[offset + 3] = 0x55;
+        strcpy((char *) (KBECContents + offset), "TACU");
         offset += 0x04;
 
        // ucat size
@@ -1372,7 +1369,6 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
             KBECContents[offset + 3] = (ucatAttribute >> 24) & 0xFF;
             offset += 0x04;
         }
-        free(options->ucatCellAttribtes);
     }
 
     fwrite(KBECContents, 1, kbecSize, fp);
@@ -1561,14 +1557,14 @@ void ReadNtrAnimation(char *path, struct JsonToAnimationOptions *options)
     {
         offset = 0x28 + uaatOffset + 0x0c * options->sequenceCount + 0x04 * options->frameCount; // index of first attribute
 
-        options->uaatData.sequenceAttributes = malloc(sizeof(int) * options->sequenceCount);
+        options->uaatData.sequenceAttributes = malloc(sizeof(uint32_t) * options->sequenceCount);
         for (int i = 0; i < options->sequenceCount; i++)
         {
             options->uaatData.sequenceAttributes[i] = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
             offset += 0x04;
         }
 
-        options->uaatData.frameAttributes = malloc(sizeof(int) * options->frameCount);
+        options->uaatData.frameAttributes = malloc(sizeof(uint32_t) * options->frameCount);
         for (int i = 0; i < options->frameCount; i++)
         {
             options->uaatData.frameAttributes[i] = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
@@ -1929,10 +1925,7 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
         int offset = uaatOffset - 0x18;
         
         // UAAT magic
-        KBNAContents[offset] = 0x54;
-        KBNAContents[offset + 1] = 0x41;
-        KBNAContents[offset + 2] = 0x41;
-        KBNAContents[offset + 3] = 0x55;
+        strcpy((char *) (KBNAContents + offset), "TAAU");
         offset += 0x04;
 
         // uaat size
@@ -2007,7 +2000,6 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             KBNAContents[offset + 3] = (uaatSequenceAttribute >> 24) & 0xFF;
             offset += 0x04;
         }
-        free(options->uaatData.sequenceAttributes);
 
         for (int i = 0; i < options->frameCount; i++)
         {
@@ -2019,7 +2011,6 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
             KBNAContents[offset + 3] = (uaatFrameAttribute >> 24) & 0xFF;
             offset += 0x04;
         }
-        free(options->uaatData.frameAttributes);
     }
 
     fwrite(KBNAContents, 1, contentsSize, fp);
