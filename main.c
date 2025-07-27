@@ -23,179 +23,8 @@ struct CommandHandler
     void(*function)(char *inputPath, char *outputPath, int argc, char **argv);
 };
 
-void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
-{
-    int overflowSize = 0;
-    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
-    bool forwardIteration = true;
-    bool nopad = false;
-
-    for (int i = 3; i < argc; i++)
-    {
-        char *option = argv[i];
-
-        if (strcmp(option, "-overflow") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
-                FATAL_ERROR("Failed to parse overflow size.\n");
-
-            if (overflowSize < 1)
-                FATAL_ERROR("Overflow size must be positive.\n");
-        }
-        else if (strcmp(option, "-search") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
-                FATAL_ERROR("Failed to parse LZ min search distance.\n");
-
-            if (minDistance < 1)
-                FATAL_ERROR("LZ min search distance must be positive.\n");
-        }
-        else if (strcmp(option, "-reverse") == 0)
-        {
-            forwardIteration = false;
-        }
-        else if (strcmp(option, "-nopad") == 0)
-        {
-            nopad = true;
-        }
-        else
-        {
-            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
-        }
-    }
-
-    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
-    // to be reproduced. It works by appending a number of zeros to the data
-    // before compressing it and then amending the LZ header's size field to
-    // reflect the expected size. This will cause an overflow when decompressing
-    // the data.
-
-    int fileSize;
-    unsigned char *buffer = ReadWholeFileZeroPadded(inputPath, &fileSize, overflowSize);
-
-    int compressedSize;
-    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
-
-    compressedData[1] = (unsigned char)fileSize;
-    compressedData[2] = (unsigned char)(fileSize >> 8);
-    compressedData[3] = (unsigned char)(fileSize >> 16);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = LZDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
-}
-
-void HandleRLCompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int compressedSize;
-    unsigned char *compressedData = RLCompress(buffer, fileSize, &compressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleRLDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = RLDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
-}
-
-void HandleHuffCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
-{
-    int fileSize;
-    int bitDepth = 4;
-
-    for (int i = 3; i < argc; i++)
-    {
-        char *option = argv[i];
-
-        if (strcmp(option, "-depth") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-depth\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &bitDepth))
-                FATAL_ERROR("Failed to parse bit depth.\n");
-
-            if (bitDepth != 4 && bitDepth != 8)
-                FATAL_ERROR("GBA only supports bit depth of 4 or 8.\n");
-        }
-        else
-        {
-            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
-        }
-    }
-
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int compressedSize;
-    unsigned char *compressedData = HuffCompress(buffer, fileSize, &compressedSize, bitDepth);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
-}
-
-void HandleHuffDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
-{
-    int fileSize;
-    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
-
-    int uncompressedSize;
-    unsigned char *uncompressedData = HuffDecompress(buffer, fileSize, &uncompressedSize);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
-
-    free(uncompressedData);
-}
+static void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv);
+static void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED);
 
 void ConvertGbaToPng(char *inputPath, char *outputPath, struct GbaToPngOptions *options)
 {
@@ -1368,6 +1197,180 @@ void HandlePngToFullwidthJapaneseFontCommand(char *inputPath, char *outputPath, 
     WriteFullwidthJapaneseFont(outputPath, &image);
 
     FreeImage(&image);
+}
+
+static void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    int overflowSize = 0;
+    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
+    bool forwardIteration = true;
+    bool nopad = false;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-overflow") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
+                FATAL_ERROR("Failed to parse overflow size.\n");
+
+            if (overflowSize < 1)
+                FATAL_ERROR("Overflow size must be positive.\n");
+        }
+        else if (strcmp(option, "-search") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
+                FATAL_ERROR("Failed to parse LZ min search distance.\n");
+
+            if (minDistance < 1)
+                FATAL_ERROR("LZ min search distance must be positive.\n");
+        }
+        else if (strcmp(option, "-reverse") == 0)
+        {
+            forwardIteration = false;
+        }
+        else if (strcmp(option, "-nopad") == 0)
+        {
+            nopad = true;
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
+
+    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
+    // to be reproduced. It works by appending a number of zeros to the data
+    // before compressing it and then amending the LZ header's size field to
+    // reflect the expected size. This will cause an overflow when decompressing
+    // the data.
+
+    int fileSize;
+    unsigned char *buffer = ReadWholeFileZeroPadded(inputPath, &fileSize, overflowSize);
+
+    int compressedSize;
+    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
+
+    compressedData[1] = (unsigned char)fileSize;
+    compressedData[2] = (unsigned char)(fileSize >> 8);
+    compressedData[3] = (unsigned char)(fileSize >> 16);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+static void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = LZDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
+}
+
+void HandleRLCompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int compressedSize;
+    unsigned char *compressedData = RLCompress(buffer, fileSize, &compressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+void HandleRLDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = RLDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
+}
+
+void HandleHuffCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
+{
+    int fileSize;
+    int bitDepth = 4;
+
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-depth") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-depth\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &bitDepth))
+                FATAL_ERROR("Failed to parse bit depth.\n");
+
+            if (bitDepth != 4 && bitDepth != 8)
+                FATAL_ERROR("GBA only supports bit depth of 4 or 8.\n");
+        }
+        else
+        {
+            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
+        }
+    }
+
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int compressedSize;
+    unsigned char *compressedData = HuffCompress(buffer, fileSize, &compressedSize, bitDepth);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, compressedData, compressedSize);
+
+    free(compressedData);
+}
+
+void HandleHuffDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
+{
+    int fileSize;
+    unsigned char *buffer = ReadWholeFile(inputPath, &fileSize);
+
+    int uncompressedSize;
+    unsigned char *uncompressedData = HuffDecompress(buffer, fileSize, &uncompressedSize);
+
+    free(buffer);
+
+    WriteWholeFile(outputPath, uncompressedData, uncompressedSize);
+
+    free(uncompressedData);
 }
 
 void HandleNtrFontToPngCommand(char *inputPath, char *outputPath, int argc, char **argv)
