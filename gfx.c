@@ -8,6 +8,7 @@
 #include <math.h>
 #include "global.h"
 #include "gfx.h"
+#include "json.h"
 #include "util.h"
 
 static unsigned int FindNitroDataBlock(const unsigned char *data, const char *ident, unsigned int fileSize, unsigned int *blockSize_out)
@@ -796,6 +797,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
+    free(image->pixels);
     if (toPNG)
     {
         image->pixels = newPixels;
@@ -809,7 +811,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         image->width = 8;
     }
     FreeNCERCell(options);
-    free(newPixels);
 }
 
 void WriteImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors)
