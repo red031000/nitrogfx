@@ -623,6 +623,10 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
+    if (outputHeight == 0 || outputWidth == 0)
+    {
+        FATAL_ERROR("No cells. Incompatible NCER\n");
+    }
     unsigned char *newPixels = malloc(outputHeight * outputWidth);
     memset(newPixels, 255, outputHeight * outputWidth);
 
@@ -804,6 +808,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         image->height = numTiles * 8;
         image->width = 8;
     }
+    FreeNCERCell(options);
+    free(newPixels);
 }
 
 void WriteImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors)
