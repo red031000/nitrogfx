@@ -99,6 +99,11 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     image.hasTransparency = options->hasTransparency;
 
+    if (options->cellFilePath != NULL)
+    {
+        ApplyCellsToImage(options->cellFilePath, &image, true);
+    }
+
     WritePng(outputPath, &image);
 
     FreeImage(&image);
@@ -164,6 +169,11 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
     }
 
     options->bitDepth = options->bitDepth == 0 ? image.bitDepth : options->bitDepth;
+
+    if (options->cellFilePath != NULL)
+    {
+        ApplyCellsToImage(options->cellFilePath, &image, false);
+    }
 
     WriteNtrImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk,
                   &image, !image.hasPalette, options->clobberSize, options->byteOrder, options->version101,
@@ -258,6 +268,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
 {
     struct NtrToPngOptions options;
     options.paletteFilePath = NULL;
+    options.cellFilePath = NULL;
     options.hasTransparency = false;
     options.width = 0;
     options.colsPerChunk = 1;
@@ -278,6 +289,15 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
             i++;
 
             options.paletteFilePath = argv[i];
+        }
+        else if (strcmp(option, "-cell") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No cell file path following \"-cell\".\n");
+
+            i++;
+
+            options.cellFilePath = argv[i];
         }
         else if (strcmp(option, "-object") == 0)
         {
@@ -424,6 +444,7 @@ void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **a
 void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
     struct PngToNtrOptions options;
+    options.cellFilePath = NULL;
     options.numTiles = 0;
     options.bitDepth = 0;
     options.colsPerChunk = 1;
@@ -454,6 +475,15 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
 
             if (options.numTiles < 1)
                 FATAL_ERROR("Number of tiles must be positive.\n");
+        }
+        else if (strcmp(option, "-cell") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No cell file path following \"-cell\".\n");
+
+            i++;
+
+            options.cellFilePath = argv[i];
         }
         else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
