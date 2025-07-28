@@ -23,6 +23,7 @@ struct CommandHandler
     void(*function)(char *inputPath, char *outputPath, int argc, char **argv);
 };
 
+static int CountLzCompressArgs(int argc, char **argv);
 static void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv);
 static void HandleLZDecompressCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED);
 
@@ -595,195 +596,11 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
 
 void HandlePngToNtrLzCommand(char *inputPath, char *outputPath, int argc, char **argv)
 {
-    struct PngToNtrOptions optionsNTR;
-    optionsNTR.numTiles = 0;
-    optionsNTR.bitDepth = 0;
-    optionsNTR.colsPerChunk = 1;
-    optionsNTR.rowsPerChunk = 1;
-    optionsNTR.wrongSize = false;
-    optionsNTR.clobberSize = false;
-    optionsNTR.byteOrder = true;
-    optionsNTR.version101 = false;
-    optionsNTR.sopc = false;
-    optionsNTR.scanMode = 0;
-    optionsNTR.handleEmpty = false;
-    optionsNTR.vramTransfer = false;
-    optionsNTR.mappingType = 0;
+    int numLzArgs = CountLzCompressArgs(argc, argv);
     
-    int overflowSize = 0;
-    int minDistance = 2; // default, for compatibility with LZ77UnCompVram()
-    bool forwardIteration = true;
-    bool nopad = false;
+    HandlePngToNtrCommand(inputPath, outputPath, argc - numLzArgs, argv);
 
-    for (int i = 3; i < argc; i++)
-    {
-        char *option = argv[i];
-
-        if (strcmp(option, "-num_tiles") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No number of tiles following \"-num_tiles\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.numTiles))
-                FATAL_ERROR("Failed to parse number of tiles.\n");
-
-            if (optionsNTR.numTiles < 1)
-                FATAL_ERROR("Number of tiles must be positive.\n");
-        }
-        else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No columns per chunk value following \"%s\".\n", option);
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.colsPerChunk))
-                FATAL_ERROR("Failed to parse columns per chunk.\n");
-
-            if (optionsNTR.colsPerChunk < 1)
-                FATAL_ERROR("columns per chunk must be positive.\n");
-        }
-        else if (strcmp(option, "-mheight") == 0 || strcmp(option, "-rpc") == 0) {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No rows per chunk value following \"%s\".\n", option);
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.rowsPerChunk))
-                FATAL_ERROR("Failed to parse rows per chunk.\n");
-
-            if (optionsNTR.rowsPerChunk < 1)
-                FATAL_ERROR("rows per chunk must be positive.\n");
-        }
-        else if (strcmp(option, "-bitdepth") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No bitdepth value following \"-bitdepth\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.bitDepth))
-                FATAL_ERROR("Failed to parse bitdepth.\n");
-
-            if (optionsNTR.bitDepth != 4 && optionsNTR.bitDepth != 8)
-                FATAL_ERROR("bitdepth must be either 4 or 8.\n");
-        }
-        else if (strcmp(option, "-clobbersize") == 0)
-        {
-            optionsNTR.clobberSize = true;
-        }
-        else if (strcmp(option, "-nobyteorder") == 0)
-        {
-            optionsNTR.byteOrder = false;
-        }
-        else if (strcmp(option, "-version101") == 0)
-        {
-            optionsNTR.version101 = true;
-        }
-        else if (strcmp(option, "-sopc") == 0)
-        {
-            optionsNTR.sopc = true;
-        }
-        else if (strcmp(option, "-scanned") == 0)
-        {
-            if (optionsNTR.scanMode != 0)
-                FATAL_ERROR("Scan mode specified more than once.\n-scanned goes back to front as in DP, -scanfronttoback goes front to back as in PtHGSS\n");
-            optionsNTR.scanMode = 1;
-        }
-        else if (strcmp(option, "-scanfronttoback") == 0)
-        {
-            if (optionsNTR.scanMode != 0)
-                FATAL_ERROR("Scan mode specified more than once.\n-scanned goes back to front as in DP, -scanfronttoback goes front to back as in PtHGSS\n");
-            optionsNTR.scanMode = 2;
-        }
-        else if (strcmp(option, "-wrongsize") == 0) {
-            optionsNTR.wrongSize = true;
-        }
-        else if (strcmp(option, "-handleempty") == 0)
-        {
-            optionsNTR.handleEmpty = true;
-        }
-        else if (strcmp(option, "-vram") == 0)
-        {
-            optionsNTR.vramTransfer = true;
-        }
-        else if (strcmp(option, "-mappingtype") == 0) {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No mapping type value following \"-mappingtype\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &optionsNTR.mappingType))
-                FATAL_ERROR("Failed to parse mapping type.\n");
-
-            if (optionsNTR.mappingType != 0 && optionsNTR.mappingType != 32 && optionsNTR.mappingType != 64 && optionsNTR.mappingType != 128 && optionsNTR.mappingType != 256)
-                FATAL_ERROR("bitdepth must be one of the following: 0, 32, 64, 128, or 256\n");
-        }
-        else if (strcmp(option, "-overflow") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &overflowSize))
-                FATAL_ERROR("Failed to parse overflow size.\n");
-
-            if (overflowSize < 1)
-                FATAL_ERROR("Overflow size must be positive.\n");
-        }
-        else if (strcmp(option, "-search") == 0)
-        {
-            if (i + 1 >= argc)
-                FATAL_ERROR("No size following \"-overflow\".\n");
-
-            i++;
-
-            if (!ParseNumber(argv[i], NULL, 10, &minDistance))
-                FATAL_ERROR("Failed to parse LZ min search distance.\n");
-
-            if (minDistance < 1)
-                FATAL_ERROR("LZ min search distance must be positive.\n");
-        }
-        else if (strcmp(option, "-reverse") == 0)
-        {
-            forwardIteration = false;
-        }
-        else if (strcmp(option, "-nopad") == 0)
-        {
-            nopad = true;
-        }
-        else
-        {
-            FATAL_ERROR("Unrecognized option \"%s\".\n", option);
-        }
-    }
-
-    ConvertPngToNtr(inputPath, outputPath, &optionsNTR);
-
-    // The overflow option allows a quirk in some of Ruby/Sapphire's tilesets
-    // to be reproduced. It works by appending a number of zeros to the data
-    // before compressing it and then amending the LZ header's size field to
-    // reflect the expected size. This will cause an overflow when decompressing
-    // the data.
-
-    int fileSize;
-    unsigned char *buffer = ReadWholeFileZeroPadded(outputPath, &fileSize, overflowSize);
-
-    int compressedSize;
-    unsigned char *compressedData = LZCompress(buffer, fileSize + overflowSize, &compressedSize, minDistance, forwardIteration, !nopad);
-
-    compressedData[1] = (unsigned char)fileSize;
-    compressedData[2] = (unsigned char)(fileSize >> 8);
-    compressedData[3] = (unsigned char)(fileSize >> 16);
-
-    free(buffer);
-
-    WriteWholeFile(outputPath, compressedData, compressedSize);
-
-    free(compressedData);
+    HandleLZCompressCommand(outputPath, outputPath, 3 + numLzArgs, &(argv[argc - 3 - numLzArgs]));
 }
 
 void HandlePngToGbaPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -1230,6 +1047,45 @@ void HandlePngToFullwidthJapaneseFontCommand(char *inputPath, char *outputPath, 
     WriteFullwidthJapaneseFont(outputPath, &image);
 
     FreeImage(&image);
+}
+
+static int CountLzCompressArgs(int argc, char **argv)
+{
+    int count = 0;
+    
+    for (int i = 3; i < argc; i++)
+    {
+        char *option = argv[i];
+
+        if (strcmp(option, "-overflow") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            count++;
+        }
+        else if (strcmp(option, "-search") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No size following \"-overflow\".\n");
+
+            i++;
+
+            count++;
+        }
+        else if (strcmp(option, "-reverse") == 0)
+        {
+            count++;
+        }
+        else if (strcmp(option, "-nopad") == 0)
+        {
+            count++;
+        }
+    }
+
+    return count;
 }
 
 static void HandleLZCompressCommand(char *inputPath, char *outputPath, int argc, char **argv)
