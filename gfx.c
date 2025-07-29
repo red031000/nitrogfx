@@ -664,7 +664,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             scanHeight++;
         }
         int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-        int cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
         int uniqueOAMs = options->cells[i]->oamCount;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
@@ -675,14 +674,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             switch (options->cells[i]->oam[j].attr0.Shape)
             {
             case 0:
-                if (oamSize == 0)
-                {
-                    oamHeight = 1;
-                }
-                else
-                {
-                    oamHeight = 2 << oamSize - 1;
-                }
+                oamHeight = 1 << oamSize;
                 oamWidth = oamHeight;
                 break;
             case 1:
