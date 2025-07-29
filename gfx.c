@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <math.h>
 #include "global.h"
 #include "gfx.h"
 #include "json.h"
@@ -587,9 +586,29 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
 
 void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 {
-    struct JsonToCellOptions *options = malloc(sizeof(struct JsonToCellOptions));
+    char *cellFileExtension = GetFileExtension(cellFilePath);
+    if (cellFileExtension == NULL)
+    {
+        FATAL_ERROR("NULL cell file path\n");
+    }
+    struct JsonToCellOptions *options;
 
-    ReadNtrCell(cellFilePath, options);
+    if (strcmp(cellFileExtension, "NCER") == 0)
+    {
+        options = malloc(sizeof(struct JsonToCellOptions));
+        ReadNtrCell(cellFilePath, options);
+    }
+    else
+    {
+        if (strcmp(cellFileExtension, "json") == 0)
+        {
+            options = ParseNCERJson(cellFilePath);
+        }
+        else
+        {
+            FATAL_ERROR("Incompatible cell file type\n");
+        }
+    }
 
     int outputHeight = 0;
     int outputWidth = 0;
@@ -652,14 +671,22 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         {
             int oamHeight;
             int oamWidth;
+            int oamSize = options->cells[i]->oam[j].attr1.Size;
             switch (options->cells[i]->oam[j].attr0.Shape)
             {
             case 0:
-                oamHeight = pow(2, options->cells[i]->oam[j].attr1.Size);
+                if (oamSize == 0)
+                {
+                    oamHeight = 1;
+                }
+                else
+                {
+                    oamHeight = 2 << oamSize - 1;
+                }
                 oamWidth = oamHeight;
                 break;
             case 1:
-                switch (options->cells[i]->oam[j].attr1.Size)
+                switch (oamSize)
                 {
                     case 0:
                         oamHeight = 1;
@@ -680,7 +707,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                 }
                 break;
             case 2:
-                switch (options->cells[i]->oam[j].attr1.Size)
+                switch (oamSize)
                 {
                     case 0:
                         oamHeight = 2;
