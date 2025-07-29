@@ -1399,8 +1399,8 @@ int main(int argc, char **argv)
 
     for (int i = 0; handlers[i].function != NULL; i++)
     {
-        if ((handlers[i].inputFileExtension == NULL || strcmp(handlers[i].inputFileExtension, inputFileExtension) == 0)
-            && (handlers[i].outputFileExtension == NULL || strcmp(handlers[i].outputFileExtension, outputFileExtension) == 0)
+        if (((handlers[i].inputFileExtension == NULL || strcmp(handlers[i].inputFileExtension, inputFileExtension) == 0)
+            && (handlers[i].outputFileExtension == NULL || strcmp(handlers[i].outputFileExtension, outputFileExtension) == 0))
             || (handlers[i].inputFileExtension == NULL && strrchr(outputFileExtension, '.') && strstr(outputFileExtension, handlers[i].outputFileExtension))
             || (handlers[i].outputFileExtension == NULL && strrchr(inputFileExtension, '.') && strstr(inputFileExtension, handlers[i].inputFileExtension)))
         {
