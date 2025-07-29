@@ -180,6 +180,39 @@ static void ConvertFromTiles4BppCell(unsigned char *src, unsigned char *dest, in
     }
 }
 
+static void Convert8BppFrom4BppTiles(unsigned char *src, unsigned char *dest, int numTiles, int chunksWide, int colsPerChunk, int rowsPerChunk, bool invertColors, int paletteRow)
+{
+    int tilesSoFar = 0;
+    int rowsSoFar = 0;
+    int chunkStartX = 0;
+    int chunkStartY = 0;
+    int pitch = (chunksWide * colsPerChunk) * 8;
+
+    for (int i = 0; i < numTiles; i++) {
+        for (int j = 0; j < 8; j++) {
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+
+            for (int k = 0; k < 8; k++) {
+                int idxComponentX = (chunkStartX * colsPerChunk + tilesSoFar) * 8 + k;
+                unsigned char srcPixelPair = *src++;
+                unsigned char leftPixel = srcPixelPair & 0xF;
+                unsigned char rightPixel = srcPixelPair >> 4;
+
+                if (invertColors) {
+                    leftPixel = 15 - leftPixel;
+                    rightPixel = 15 - rightPixel;
+                }
+
+                dest[idxComponentY * pitch + idxComponentX] = (paletteRow << 4) | leftPixel;
+                dest[idxComponentY * pitch + idxComponentX + 1] = (paletteRow << 4) | rightPixel;
+                k++;
+            }
+        }
+
+        AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, chunksWide, colsPerChunk, rowsPerChunk);
+    }
+}
+
 static uint32_t ConvertFromScanned4Bpp(unsigned char *src, unsigned char *dest, int fileSize, bool invertColours, bool scanFrontToBack)
 {
     uint32_t encValue = 0;
@@ -450,6 +483,36 @@ static void ConvertToTiles8Bpp(unsigned char *src, unsigned char *dest, int numT
     }
 }
 
+static void Convert8BppTo4BppTiles(unsigned char *src, unsigned char *dest, int numTiles, int chunksWide, int colsPerChunk, int rowsPerChunk, bool invertColors)
+{
+    int tilesSoFar = 0;
+    int rowsSoFar = 0;
+    int chunkStartX = 0;
+    int chunkStartY = 0;
+    int pitch = (chunksWide * colsPerChunk) * 8;
+
+    for (int i = 0; i < numTiles; i++) {
+        for (int j = 0; j < 8; j++) {
+            int idxComponentY = (chunkStartY * rowsPerChunk + rowsSoFar) * 8 + j;
+
+            for (int k = 0; k < 8; k += 2) {
+                int idxComponentX = (chunkStartX * colsPerChunk + tilesSoFar) * 8 + k;
+                unsigned char leftPixel = src[idxComponentY * pitch + idxComponentX] & 0xF;
+                unsigned char rightPixel = src[idxComponentY * pitch + idxComponentX + 1] & 0xF;
+
+                if (invertColors) {
+                    leftPixel = 15 - leftPixel;
+                    rightPixel = 15 - rightPixel;
+                }
+
+                *dest++ = (rightPixel << 4) | leftPixel;
+            }
+        }
+
+        AdvanceTilePosition(&tilesSoFar, &rowsSoFar, &chunkStartX, &chunkStartY, chunksWide, colsPerChunk, rowsPerChunk);
+    }
+}
+
 void ReadImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors)
 {
     int tileSize = bitDepth * 8; // number of bytes per tile
@@ -492,7 +555,7 @@ void ReadImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int ro
     free(buffer);
 }
 
-uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors, bool scanFrontToBack)
+uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors, bool scanFrontToBack, bool convertTo8Bpp, int paletteRow)
 {
     int fileSize;
     unsigned char *buffer = ReadWholeFile(path, &fileSize);
@@ -511,16 +574,18 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
 
     bitDepth = bitDepth ? bitDepth : (charHeader[0xC] == 3 ? 4 : 8);
 
-    if (bitDepth == 4)
-    {
-        image->palette.numColors = 16;
-    }
-
     unsigned char *imageData = charHeader + 0x20;
 
     bool scanned = charHeader[0x14];
 
+    if (bitDepth == 4 && (scanned || !convertTo8Bpp))
+    {
+        image->palette.numColors = 16;
+    }
+
     int tileSize = bitDepth * 8; // number of bytes per tile
+    if (bitDepth == 4 && convertTo8Bpp && !scanned)
+        tileSize *= 2;
 
     if (tilesWide == 0) {
         tilesWide = ReadS16(charHeader, 0xA);
@@ -544,7 +609,7 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
 
     image->width = tilesWide * 8;
     image->height = tilesTall * 8;
-    image->bitDepth = bitDepth;
+    image->bitDepth = !scanned && convertTo8Bpp ? 8 : bitDepth;
     image->pixels = calloc(tilesWide * tilesTall, tileSize);
 
     if (image->pixels == NULL)
@@ -570,8 +635,16 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
         switch (bitDepth)
         {
             case 4:
-                ConvertFromTiles4Bpp(imageData, image->pixels, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
-                                     invertColors);
+                if (convertTo8Bpp)
+                {
+                    Convert8BppFrom4BppTiles(imageData, image->pixels, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
+                                             invertColors, paletteRow);
+                }
+                else
+                {
+                    ConvertFromTiles4Bpp(imageData, image->pixels, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
+                                         invertColors);
+                }
                 break;
             case 8:
                 ConvertFromTiles8Bpp(imageData, image->pixels, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
@@ -885,7 +958,7 @@ void WriteImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int ro
 
 void WriteNtrImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image,
                    bool invertColors, bool clobberSize, bool byteOrder, bool version101, bool sopc, bool vram, uint32_t scanMode,
-                   uint32_t mappingType, uint32_t key, bool wrongSize)
+                   uint32_t mappingType, uint32_t key, bool wrongSize, bool convertTo4Bpp)
 {
     FILE *fp = fopen(path, "wb");
 
@@ -893,6 +966,8 @@ void WriteNtrImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int
         FATAL_ERROR("Failed to open \"%s\" for writing.\n", path);
 
     int tileSize = bitDepth * 8; // number of bytes per tile
+    if (bitDepth == 8 && convertTo4Bpp && !scanMode)
+        tileSize /= 2;
 
     if (image->width % 8 != 0)
         FATAL_ERROR("The width in pixels (%d) isn't a multiple of 8.\n", image->width);
@@ -945,8 +1020,16 @@ void WriteNtrImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int
                                    invertColors);
                 break;
             case 8:
-                ConvertToTiles8Bpp(image->pixels, pixelBuffer, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
-                                   invertColors);
+                if (convertTo4Bpp)
+                {
+                    Convert8BppTo4BppTiles(image->pixels, pixelBuffer, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
+                                           invertColors);
+                }
+                else
+                {
+                    ConvertToTiles8Bpp(image->pixels, pixelBuffer, numTiles, chunksWide, colsPerChunk, rowsPerChunk,
+                                       invertColors);
+                }
                 break;
         }
     }
@@ -984,7 +1067,7 @@ void WriteNtrImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int
         }
     }
 
-    charHeader[12] = bitDepth == 4 ? 3 : 4;
+    charHeader[12] = bitDepth == 4 || convertTo4Bpp ? 3 : 4;
 
     if (mappingType != 0) {
         uint32_t val = 0;
@@ -1071,7 +1154,7 @@ void ReadGbaPalette(char *path, struct Palette *palette)
     free(data);
 }
 
-void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool inverted)
+void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool inverted, bool convertTo8Bpp)
 {
     int fileSize;
     unsigned char *data = ReadWholeFile(path, &fileSize);
@@ -1100,7 +1183,7 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
     if (palIndex == 0) {
         palette->numColors = paletteSize / 2;
     } else {
-        palette->numColors = bitdepth == 4 ? 16 : 256; //remove header and divide by 2
+        palette->numColors = bitdepth == 4 && !convertTo8Bpp ? 16 : 256; //remove header and divide by 2
         --palIndex;
     }
 
@@ -1147,7 +1230,7 @@ void WriteGbaPalette(char *path, struct Palette *palette)
     fclose(fp);
 }
 
-void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum, bool pcmp, bool inverted)
+void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, int bitdepth, bool pad, int compNum, bool pcmp, bool inverted, bool convertTo4Bpp)
 {
     FILE *fp = fopen(path, "wb");
 
@@ -1193,7 +1276,7 @@ void WriteNtrPalette(char *path, struct Palette *palette, bool ncpr, bool ir, in
     bitdepth = bitdepth ? bitdepth : palette->bitDepth;
 
     //bit depth
-    palHeader[8] = bitdepth == 4 ? 0x03: 0x04;
+    palHeader[8] = bitdepth == 4 || convertTo4Bpp ? 0x03 : 0x04;
 
     if (compNum)
     {

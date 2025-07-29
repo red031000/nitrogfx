@@ -79,7 +79,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     if (options->paletteFilePath != NULL)
     {
-        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex, false);
+        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex, false, options->convertTo8Bpp);
         image.hasPalette = true;
     }
     else
@@ -87,7 +87,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
         image.hasPalette = false;
     }
 
-    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack);
+    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack, options->convertTo8Bpp, options->paletteRow);
 
     if (key)
     {
@@ -181,7 +181,8 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
 
     WriteNtrImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk,
                   &image, !image.hasPalette, options->clobberSize, options->byteOrder, options->version101,
-                  options->sopc, options->vramTransfer, options->scanMode, options->mappingType, key, options->wrongSize);
+                  options->sopc, options->vramTransfer, options->scanMode, options->mappingType, key, options->wrongSize,
+                  options->convertTo4Bpp);
 
     FreeImage(&image);
 }
@@ -366,6 +367,23 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
         else if (strcmp(option, "-handleempty") == 0)
         {
             options.handleEmpty = true;
+        }
+        else if (strcmp(option, "-convertTo8Bpp") == 0)
+        {
+            options.convertTo8Bpp = true;
+        }
+        else if (strcmp(option, "-paletteRow") == 0)
+        {
+            if (i + 1 >= argc)
+                FATAL_ERROR("No palette row value following \"%s\".\n", option);
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &options.paletteRow))
+                FATAL_ERROR("Failed to parse palette row.\n");
+
+            if (options.paletteRow < 0 || options.paletteRow > 15)
+                FATAL_ERROR("Palette row must be between 0 and 15.\n");
         }
         else
         {
@@ -585,6 +603,10 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.mappingType != 0 && options.mappingType != 32 && options.mappingType != 64 && options.mappingType != 128 && options.mappingType != 256)
                 FATAL_ERROR("bitdepth must be one of the following: 0, 32, 64, 128, or 256\n");
         }
+        else if (strcmp(option, "-convertTo4Bpp") == 0)
+        {
+            options.convertTo4Bpp = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -621,6 +643,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     int compNum = 0;
     bool pcmp = false;
     bool inverted = false;
+    bool convertTo4Bpp = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -672,6 +695,10 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
         {
             inverted = true;
         }
+        else if (strcmp(option, "-convertTo4Bpp") == 0)
+        {
+            convertTo4Bpp = true;
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -679,7 +706,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     }
 
     ReadPngPalette(inputPath, &palette);
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted, convertTo4Bpp);
 }
 
 void HandleGbaToJascPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -723,7 +750,7 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
         }
     }
 
-    ReadNtrPalette(inputPath, &palette, bitdepth, 0, inverted);
+    ReadNtrPalette(inputPath, &palette, bitdepth, 0, inverted, false);
     WriteJascPalette(outputPath, &palette);
 }
 
@@ -851,7 +878,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     if (numColors != 0)
         palette.numColors = numColors;
 
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, inverted, false);
 }
 
 void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
