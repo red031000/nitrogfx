@@ -653,6 +653,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     int scanHeight = 0;
     int maxTile = 0;
     int tileMask[outputHeight * outputWidth]; // check for unused (starting) tiles
+    memset(tileMask, 0, outputHeight * outputWidth * sizeof(int));
     for (int i = 0; i < options->cellCount; i++)
     {
         if (options->cells[i]->oamCount == 0)
@@ -668,8 +669,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
         {
-            int oamHeight;
-            int oamWidth;
+            int oamHeight = 0;
+            int oamWidth = 0;
             int oamSize = options->cells[i]->oam[j].attr1.Size;
             switch (options->cells[i]->oam[j].attr0.Shape)
             {
