@@ -651,7 +651,6 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
     memset(newPixels, 255, outputHeight * outputWidth);
 
     int scanHeight = 0;
-    int maxTile = 0;
     int tileMask[outputHeight * outputWidth]; // check for unused (starting) tiles
     memset(tileMask, 0, outputHeight * outputWidth * sizeof(int));
     for (int i = 0; i < options->cellCount; i++)
@@ -740,37 +739,30 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             {
                 case 0:
                     pixelOffset = options->cells[i]->oam[j].attr2.CharName * 32;
-                    maxTile = options->cells[i]->oam[j].attr2.CharName + oamHeight * oamWidth;
-                    if (maxTile > numTiles)
-                    {
-                        numTiles = maxTile;
-                    }
-                    if (tileMask[options->cells[i]->oam[j].attr2.CharName])
-                    {
-                        uniqueOAMs--;
-                        continue;
-                    }
-                    tileMask[options->cells[i]->oam[j].attr2.CharName]++;
                     break;
                 case 1:
-                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64 + (scanHeight - i) * outputWidth / 2;
-                    numTiles += oamHeight * oamWidth;
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 64;
                     break;
                 case 2:
                     pixelOffset = options->cells[i]->oam[j].attr2.CharName * 128;
-                    maxTile = options->cells[i]->oam[j].attr2.CharName * 4 + oamHeight * oamWidth;
-                    if (maxTile > numTiles)
-                    {
-                        numTiles = maxTile;
-                    }
-                    if (tileMask[options->cells[i]->oam[j].attr2.CharName])
-                    {
-                        uniqueOAMs--;
-                        continue;
-                    }
-                    tileMask[options->cells[i]->oam[j].attr2.CharName]++;
+                    break;
+                case 3:
+                    pixelOffset = options->cells[i]->oam[j].attr2.CharName * 256;
                     break;
             }
+            
+            if (options->vramTransferEnabled)
+            {
+                pixelOffset += options->transferData[i]->sourceDataOffset;
+            }
+            if (tileMask[pixelOffset])
+            {
+                uniqueOAMs--;
+                continue;
+            }
+            tileMask[pixelOffset] = 1;
+            numTiles += oamHeight * oamWidth;
+
             bool rotationScaling = options->cells[i]->oam[j].attr1.RotationScaling;
             bool hFlip = options->cells[i]->attributes.hFlip && rotationScaling;
             bool vFlip = options->cells[i]->attributes.vFlip && rotationScaling;
