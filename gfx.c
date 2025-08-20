@@ -836,7 +836,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
                     pixelOffset = options->cells[i]->oam[j].attr2.CharName * 256;
                     break;
             }
-
+            
             if (options->vramTransferEnabled)
             {
                 pixelOffset += options->transferData[i]->sourceDataOffset;
