@@ -1080,7 +1080,7 @@ static int CountLzCompressArgs(int argc, char **argv)
 
             i++;
 
-            count++;
+            count += 2;
         }
         else if (strcmp(option, "-search") == 0)
         {
@@ -1089,7 +1089,7 @@ static int CountLzCompressArgs(int argc, char **argv)
 
             i++;
 
-            count++;
+            count += 2;
         }
         else if (strcmp(option, "-reverse") == 0)
         {
