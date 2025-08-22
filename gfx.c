@@ -729,7 +729,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
-    if (outputHeight == 0 || outputWidth == 0)
+    if (outputHeight < 1 || outputWidth == 0)
     {
         FATAL_ERROR("No cells. Incompatible NCER\n");
     }
