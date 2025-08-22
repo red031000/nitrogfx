@@ -700,7 +700,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
-    int outputHeight = 0;
+    int outputHeight = -1;
     int outputWidth = 0;
     int numTiles = 0;
 
@@ -722,14 +722,10 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             FATAL_ERROR("No bounding rectangle. Incompatible NCER\n");
         }
 
-        outputHeight += cellHeight;
+        outputHeight += cellHeight + 1;
         if (outputWidth < cellWidth)
         {
             outputWidth = cellWidth;
-        }
-        if (i)
-        {
-            outputHeight++;
         }
     }
 
@@ -885,12 +881,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         if (uniqueOAMs == 0)
         {
-            outputHeight -= cellHeight;
-            if (i)
-            {
-                scanHeight--;
-                outputHeight--;
-            }
+            outputHeight -= cellHeight + 1;
+            scanHeight--;
         }
         else
         {
