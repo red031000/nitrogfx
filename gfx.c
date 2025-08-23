@@ -10,6 +10,8 @@
 #include "json.h"
 #include "util.h"
 
+static int SnapToTile(int val);
+
 static unsigned int FindNitroDataBlock(const unsigned char *data, const char *ident, unsigned int fileSize, unsigned int *blockSize_out)
 {
     unsigned int offset = 0x10;
@@ -584,7 +586,22 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
     return key;
 }
 
-void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
+// accounts for OAMs overlapping by a few pixels
+static int SnapToTile(int val)
+{
+    int displacement = val % 8;
+    if (displacement < 4)
+    {
+        val -= displacement;
+    }
+    else
+    {
+        val += 8 - displacement;
+    }
+    return val;
+}
+
+void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool snap)
 {
     char *cellFileExtension = GetFileExtension(cellFilePath);
     if (cellFileExtension == NULL)
@@ -610,7 +627,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         }
     }
 
-    int outputHeight = 0;
+    int outputHeight = -1;
     int outputWidth = 0;
     int numTiles = 0;
 
@@ -624,33 +641,34 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         int cellWidth = 0;
         if (options->cells[i]->attributes.boundingRect)
         {
-            cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-            cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+            cellHeight = options->cells[i]->maxY - options->cells[i]->minY;
+            cellWidth = options->cells[i]->maxX - options->cells[i]->minX;
+            if (snap)
+            {
+                cellHeight = SnapToTile(cellHeight);
+                cellWidth = SnapToTile(cellWidth);
+            }
         }
         else
         {
             FATAL_ERROR("No bounding rectangle. Incompatible NCER\n");
         }
 
-        outputHeight += cellHeight;
+        outputHeight += cellHeight + 1;
         if (outputWidth < cellWidth)
         {
             outputWidth = cellWidth;
         }
-        if (i)
-        {
-            outputHeight++;
-        }
     }
 
-    if (outputHeight == 0 || outputWidth == 0)
+    if (outputHeight < 1 || outputWidth == 0)
     {
         FATAL_ERROR("No cells. Incompatible NCER\n");
     }
     unsigned char *newPixels = malloc(outputHeight * outputWidth);
     memset(newPixels, 255, outputHeight * outputWidth);
 
-    int scanHeight = 0;
+    int scanHeight = -1;
     int tileMask[outputHeight * outputWidth]; // check for unused (starting) tiles
     memset(tileMask, 0, outputHeight * outputWidth * sizeof(int));
     for (int i = 0; i < options->cellCount; i++)
@@ -659,11 +677,12 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         {
             continue;
         }
-        if (i)
+        scanHeight++;
+        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY;
+        if (snap)
         {
-            scanHeight++;
+            cellHeight = SnapToTile(cellHeight);
         }
-        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
         int uniqueOAMs = options->cells[i]->oamCount;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
@@ -734,6 +753,12 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             x -= options->cells[i]->minX;
             y -= options->cells[i]->minY;
 
+            if (snap)
+            {
+                x = SnapToTile(x);
+                y = SnapToTile(y);
+            }
+
             int pixelOffset = 0;
             switch (options->mappingType)
             {
@@ -796,12 +821,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
 
         if (uniqueOAMs == 0)
         {
-            outputHeight -= cellHeight;
-            if (i)
-            {
-                scanHeight--;
-                outputHeight--;
-            }
+            outputHeight -= cellHeight + 1;
+            scanHeight--;
         }
         else
         {
