@@ -308,7 +308,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
 
             if (i + 1 < argc)
             {
-                if (strcmp(argv[i+1], "nosnap") == 0)
+                if (strcmp(argv[i+1], "-nosnap") == 0)
                 {
                     options.cellSnap = false;
                     i++;
@@ -516,7 +516,7 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
 
             if (i + 1 < argc)
             {
-                if (strcmp(argv[i+1], "nosnap") == 0)
+                if (strcmp(argv[i+1], "-nosnap") == 0)
                 {
                     options.cellSnap = false;
                     i++;
