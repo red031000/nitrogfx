@@ -714,8 +714,8 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool
         int cellWidth = 0;
         if (options->cells[i]->attributes.boundingRect)
         {
-            cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
-            cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+            cellHeight = options->cells[i]->maxY - options->cells[i]->minY;
+            cellWidth = options->cells[i]->maxX - options->cells[i]->minX;
             if (snap)
             {
                 cellHeight = SnapToTile(cellHeight);
@@ -751,7 +751,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool
             continue;
         }
         scanHeight++;
-        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY;
         if (snap)
         {
             cellHeight = SnapToTile(cellHeight);
