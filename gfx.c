@@ -674,7 +674,7 @@ static int SnapToTile(int val)
     return val;
 }
 
-void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
+void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool snap)
 {
     char *cellFileExtension = GetFileExtension(cellFilePath);
     if (cellFileExtension == NULL)
@@ -714,8 +714,13 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
         int cellWidth = 0;
         if (options->cells[i]->attributes.boundingRect)
         {
-            cellHeight = SnapToTile(options->cells[i]->maxY - options->cells[i]->minY + 1);
-            cellWidth = SnapToTile(options->cells[i]->maxX - options->cells[i]->minX + 1);
+            cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+            cellWidth = options->cells[i]->maxX - options->cells[i]->minX + 1;
+            if (snap)
+            {
+                cellHeight = SnapToTile(cellHeight);
+                cellWidth = SnapToTile(cellWidth);
+            }
         }
         else
         {
@@ -746,7 +751,11 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             continue;
         }
         scanHeight++;
-        int cellHeight = SnapToTile(options->cells[i]->maxY - options->cells[i]->minY + 1);
+        int cellHeight = options->cells[i]->maxY - options->cells[i]->minY + 1;
+        if (snap)
+        {
+            cellHeight = SnapToTile(cellHeight);
+        }
         int uniqueOAMs = options->cells[i]->oamCount;
 
         for (int j = 0; j < options->cells[i]->oamCount; j++)
@@ -817,8 +826,11 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             x -= options->cells[i]->minX;
             y -= options->cells[i]->minY;
 
-            x = SnapToTile(x);
-            y = SnapToTile(y);
+            if (snap)
+            {
+                x = SnapToTile(x);
+                y = SnapToTile(y);
+            }
 
             int pixelOffset = 0;
             switch (options->mappingType)
@@ -848,6 +860,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG)
             }
             tileMask[pixelOffset] = 1;
             numTiles += oamHeight * oamWidth;
+
             bool rotationScaling = options->cells[i]->oam[j].attr1.RotationScaling;
             bool hFlip = options->cells[i]->attributes.hFlip && rotationScaling;
             bool vFlip = options->cells[i]->attributes.vFlip && rotationScaling;

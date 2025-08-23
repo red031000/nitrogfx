@@ -105,7 +105,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     if (options->cellFilePath != NULL)
     {
-        ApplyCellsToImage(options->cellFilePath, &image, true);
+        ApplyCellsToImage(options->cellFilePath, &image, true, options->cellSnap);
     }
 
     WritePng(outputPath, &image);
@@ -176,7 +176,7 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
 
     if (options->cellFilePath != NULL)
     {
-        ApplyCellsToImage(options->cellFilePath, &image, false);
+        ApplyCellsToImage(options->cellFilePath, &image, false, options->cellSnap);
     }
 
     WriteNtrImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk,
@@ -274,6 +274,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     struct NtrToPngOptions options;
     options.paletteFilePath = NULL;
     options.cellFilePath = NULL;
+    options.cellSnap = true;
     options.hasTransparency = false;
     options.width = 0;
     options.colsPerChunk = 1;
@@ -304,6 +305,15 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
             i++;
 
             options.cellFilePath = argv[i];
+
+            if (i + 1 < argc)
+            {
+                if (strcmp(argv[i+1], "nosnap") == 0)
+                {
+                    options.cellSnap = false;
+                    i++;
+                }
+            }
         }
         else if (strcmp(option, "-object") == 0)
         {
@@ -462,6 +472,7 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
 {
     struct PngToNtrOptions options;
     options.cellFilePath = NULL;
+    options.cellSnap = true;
     options.numTiles = 0;
     options.bitDepth = 0;
     options.colsPerChunk = 1;
@@ -502,6 +513,15 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
             i++;
 
             options.cellFilePath = argv[i];
+
+            if (i + 1 < argc)
+            {
+                if (strcmp(argv[i+1], "nosnap") == 0)
+                {
+                    options.cellSnap = false;
+                    i++;
+                }
+            }
         }
         else if (strcmp(option, "-mwidth") == 0 || strcmp(option, "-cpc") == 0)
         {
