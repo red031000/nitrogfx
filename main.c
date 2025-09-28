@@ -359,6 +359,13 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
             if (options.rowsPerChunk < 1)
                 FATAL_ERROR("rows per chunk must be positive.\n");
         }
+        else if (strcmp(option, "-scanfronttoback") == 0)
+        {
+            // maintained for compatibility
+            if (options.encodeMode != 0)
+                FATAL_ERROR("Encode mode specified more than once.\n-encodebacktofront goes back to front as in DP, -encodefronttoback goes front to back as in PtHGSS\n");
+            options.encodeMode = 2;
+        }
         else if (strcmp(option, "-encodebacktofront") == 0)
         {
             if (options.encodeMode != 0)
@@ -558,6 +565,22 @@ void HandlePngToNtrCommand(char *inputPath, char *outputPath, int argc, char **a
         else if (strcmp(option, "-sopc") == 0)
         {
             options.sopc = true;
+        }
+        else if (strcmp(option, "-scanned") == 0)
+        {
+            // maintained for compatibility
+            if (options.encodeMode != 0)
+                FATAL_ERROR("Encode mode specified more than once.\n-encodebacktofront goes back to front as in DP, -encodefronttoback goes front to back as in PtHGSS\n");
+            options.encodeMode = 1;
+            options.scan = true;
+        }
+        else if (strcmp(option, "-scanfronttoback") == 0)
+        {
+            // maintained for compatibility
+            if (options.encodeMode != 0)
+                FATAL_ERROR("Encode mode specified more than once.\n-encodebacktofront goes back to front as in DP, -encodefronttoback goes front to back as in PtHGSS\n");
+            options.encodeMode = 2;
+            options.scan = true;
         }
         else if (strcmp(option, "-encodebacktofront") == 0)
         {
