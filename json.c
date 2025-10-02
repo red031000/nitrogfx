@@ -477,6 +477,9 @@ struct JsonToAnimationOptions *ParseNANRJson(char *path)
         if (i > options->resultCount - 1)
             FATAL_ERROR("Frame count is incorrect.\n");
 
+        //init padding to false, this is used in gfx.c to control padding, and is therefore checked there
+        options->animationResults[i]->padded = false;
+
         cJSON *resultType = cJSON_GetObjectItemCaseSensitive(animationResult, "resultType");
         options->animationResults[i]->resultType = GetInt(resultType);
         switch (options->animationResults[i]->resultType) {
