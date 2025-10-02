@@ -1,4 +1,4 @@
-// Copyright (c) 2015 YamaArashi, 2021-2024 red031000
+// Copyright (c) 2015 YamaArashi, 2021-2025 red031000
 
 #include <string.h>
 #include <stdio.h>
@@ -1358,11 +1358,6 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
 
     int vramTransferOffset = (data[blockOffset + 0x14] | data[blockOffset + 0x15] << 8);
     options->vramTransferEnabled = vramTransferOffset > 0;
-    /*if (!options->extended)
-    {
-        //in theory not extended should be implemented, however not 100% sure
-        FATAL_ERROR("Don't know how to deal with not extended yet, bug red031000.\n");
-    }*/
 
     options->mappingType = data[blockOffset + 0x10];
 
@@ -1602,12 +1597,6 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     unsigned char *KBECContents = malloc(kbecSize);
 
     memset(KBECContents, 0, kbecSize);
-
-    /*if (!options->extended)
-    {
-        //in theory not extended should be implemented, however not 100% sure
-        FATAL_ERROR("Don't know how to deal with not extended yet, bug red031000.\n");
-    }*/
 
     int i;
     int totalOam = 0;
