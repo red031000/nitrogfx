@@ -55,6 +55,7 @@ struct NtrToPngOptions {
     bool scanFrontToBack;
     bool handleEmpty;
     bool convertTo8Bpp;
+    bool verbose;
 };
 
 struct CellVramTransferData {
