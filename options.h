@@ -120,6 +120,7 @@ struct JsonToCellOptions {
     struct CellVramTransferData **transferData;
     char **labels;
     int labelCount;
+    bool padOAM;
 };
 
 struct JsonToScreenOptions {
