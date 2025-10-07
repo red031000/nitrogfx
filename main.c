@@ -87,7 +87,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
         image.hasPalette = false;
     }
 
-    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack, options->convertTo8Bpp, options->palIndex);
+    uint32_t key = ReadNtrImage(inputPath, options->width, 0, options->colsPerChunk, options->rowsPerChunk, &image, !image.hasPalette, options->scanFrontToBack, options->convertTo8Bpp, options->palIndex, options->verbose);
 
     if (key)
     {
@@ -283,6 +283,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     options.scanFrontToBack = false;
     options.handleEmpty = false;
     options.convertTo8Bpp = false;
+    options.verbose = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -382,6 +383,10 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
         else if (strcmp(option, "-convertTo8Bpp") == 0)
         {
             options.convertTo8Bpp = true;
+        }
+        else if (strcmp(option, "-verbose") == 0)
+        {
+            options.verbose = true;
         }
         else
         {
