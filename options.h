@@ -1,4 +1,4 @@
-// Copyright (c) 2018 huderlem, 2021-2024 red031000
+// Copyright (c) 2018 huderlem, 2021-2025 red031000
 
 #ifndef OPTIONS_H
 #define OPTIONS_H
@@ -25,6 +25,7 @@ struct PngToGbaOptions {
 
 struct PngToNtrOptions {
     char *cellFilePath;
+    bool cellSnap;
     int numTiles;
     int bitDepth;
     int colsPerChunk;
@@ -39,11 +40,13 @@ struct PngToNtrOptions {
     bool vramTransfer;
     int mappingType;
     uint32_t encodeMode;
+    bool convertTo4Bpp;
 };
 
 struct NtrToPngOptions {
     char *paletteFilePath;
     char *cellFilePath;
+    bool cellSnap;
     int bitDepth;
     bool hasTransparency;
     int width;
@@ -52,6 +55,7 @@ struct NtrToPngOptions {
     int palIndex;
     bool handleEmpty;
     uint32_t encodeMode;
+    bool convertTo8Bpp;
 };
 
 struct CellVramTransferData {
