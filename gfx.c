@@ -954,7 +954,7 @@ void WriteNtrImage(char *path, int numTiles, int bitDepth, int colsPerChunk, int
         FATAL_ERROR("Failed to open \"%s\" for writing.\n", path);
 
     int tileSize = bitDepth * 8; // number of bytes per tile
-    if (bitDepth == 8 && convertTo4Bpp && !scanMode)
+    if (bitDepth == 8 && convertTo4Bpp && !scan)
         tileSize /= 2;
 
     if (image->width % 8 != 0)
