@@ -56,6 +56,7 @@ struct NtrToPngOptions {
     bool handleEmpty;
     uint32_t encodeMode;
     bool convertTo8Bpp;
+    bool verbose;
 };
 
 struct CellVramTransferData {

@@ -522,7 +522,7 @@ void ReadImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int ro
     free(buffer);
 }
 
-uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors, uint32_t encodeMode, bool convertTo8Bpp, int palIndex)
+uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int rowsPerChunk, struct Image *image, bool invertColors, uint32_t encodeMode, bool convertTo8Bpp, int palIndex, bool verbose)
 {
     int fileSize;
     unsigned char *buffer = ReadWholeFile(path, &fileSize);
@@ -544,6 +544,41 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
     unsigned char *imageData = charHeader + 0x20;
 
     bool scanned = charHeader[0x14];
+
+    if (verbose)
+    {
+        if (!convertTo8Bpp) {
+            printf("-bitdepth %d ", bitDepth);
+        } else {
+            printf("-convertTo4Bpp ");
+        }
+
+        if (buffer[0x6] == 1) {
+            printf("-version101 ");
+        }
+
+        if (charHeader[0x8] == 0xFF && charHeader[0x9] == 0xFF && charHeader[0xA] == 0xFF && charHeader[0xB] == 0xFF)
+        {
+            printf("-clobbersize ");
+        }
+
+        if (buffer[0xE] == 2) {
+            printf("-sopc ");
+        }
+
+        if (charHeader[0x12]) {
+            printf("-mappingtype %d ", 1 << (5 + (charHeader[0x12] >> 4)));
+        }
+
+        if (scanned)
+        {
+            printf("-scanned ");
+        }
+
+        if (charHeader[0x15] == 1) {
+            printf("-vram ");
+        }
+    }
 
     if (bitDepth == 4 && (scanned || !convertTo8Bpp))
     {
@@ -787,15 +822,15 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool
                 break;
             }
 
-            int x = options->cells[i]->oam[j].attr1.XCoordinate; // 8 bits
-            if ((x & 0x80) != 0)
+            int x = options->cells[i]->oam[j].attr1.XCoordinate;
+            if (x & (1 << 8))
             {
-                x = (x | ~0xFF);
+                x |= ~0x1FF;
             }
-            int y = options->cells[i]->oam[j].attr0.YCoordinate; // 7 bits
-            if ((y & 0x40) != 0)
+            int y = options->cells[i]->oam[j].attr0.YCoordinate;
+            if (y & (1 << 7))
             {
-                y = (y | ~0x7F);
+                y |= ~0xFF;
             }
             x -= options->cells[i]->minX;
             y -= options->cells[i]->minY;
