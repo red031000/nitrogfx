@@ -1760,9 +1760,9 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     }
 
     // word-aligned
-    while (offset % 4 > 0)
+    if (offset % 4 > 0)
     {
-        offset += 0x01;
+        offset += 4 - (offset % 4);
     }
 
     // VRAM transfer data
@@ -1799,11 +1799,11 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
     // UCAT data
     if (options->ucatEnabled)
     {
-       // UCAT magic
+        // UCAT magic
         strcpy((char *) (KBECContents + offset), "TACU");
         offset += 0x04;
 
-       // ucat size
+        // ucat size
         KBECContents[offset] = ucatSize & 0xFF;
         KBECContents[offset + 1] = (ucatSize >> 8) & 0xFF;
         KBECContents[offset + 2] = (ucatSize >> 16) & 0xFF;
