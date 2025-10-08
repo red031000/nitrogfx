@@ -34,11 +34,12 @@ struct PngToNtrOptions {
     bool byteOrder;
     bool version101;
     bool sopc;
-    uint32_t scanMode;
+    bool scan;
     bool wrongSize;
     bool handleEmpty;
     bool vramTransfer;
     int mappingType;
+    uint32_t encodeMode;
     bool convertTo4Bpp;
 };
 
@@ -52,8 +53,8 @@ struct NtrToPngOptions {
     int colsPerChunk;
     int rowsPerChunk;
     int palIndex;
-    bool scanFrontToBack;
     bool handleEmpty;
+    uint32_t encodeMode;
     bool convertTo8Bpp;
     bool verbose;
 };
