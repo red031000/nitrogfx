@@ -47,6 +47,7 @@ struct NtrToPngOptions {
     char *paletteFilePath;
     char *cellFilePath;
     bool cellSnap;
+    bool noSkip;
     int bitDepth;
     bool hasTransparency;
     int width;
