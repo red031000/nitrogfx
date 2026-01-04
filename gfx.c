@@ -544,8 +544,9 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
 
     bool scanned = charHeader[0x14];
 
-    if (verbose)
-    {
+    if (verbose) {
+        printf("Suggested NCGR options: ");
+
         if (!convertTo8Bpp) {
             printf("-bitdepth %d ", bitDepth);
         } else {
@@ -556,8 +557,7 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
             printf("-version101 ");
         }
 
-        if (charHeader[0x8] == 0xFF && charHeader[0x9] == 0xFF && charHeader[0xA] == 0xFF && charHeader[0xB] == 0xFF)
-        {
+        if (charHeader[0x8] == 0xFF && charHeader[0x9] == 0xFF && charHeader[0xA] == 0xFF && charHeader[0xB] == 0xFF) {
             printf("-clobbersize ");
         }
 
@@ -569,14 +569,15 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
             printf("-mappingtype %d ", 1 << (5 + (charHeader[0x12] >> 4)));
         }
 
-        if (scanned)
-        {
+        if (scanned) {
             printf("-scanned ");
         }
 
         if (charHeader[0x15] == 1) {
             printf("-vram ");
         }
+
+        puts(""); // at least 1 line is always output (-bitdepth / -convertTo4Bpp)
     }
 
     if (bitDepth == 4 && (scanned || !convertTo8Bpp))
@@ -1245,9 +1246,10 @@ void ReadGbaPalette(char *path, struct Palette *palette)
 
 #define PLTT_HEADER_SIZE 0x18
 
-void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool convertTo8Bpp)
+void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool convertTo8Bpp, bool verbose)
 {
     int fileSize;
+    bool inverted = false;
     unsigned char *data = ReadWholeFile(path, &fileSize);
 
     if (memcmp(data, "RLCN", 4) != 0 && memcmp(data, "RPCN", 4) != 0) //NCLR / NCPR
@@ -1276,6 +1278,7 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
     size_t paletteSize = (paletteHeader[0x10]) | (paletteHeader[0x11] << 8) | (paletteHeader[0x12] << 16) | (paletteHeader[0x13] << 24);
     if (sectionSize - PLTT_HEADER_SIZE != paletteSize) {
         paletteSize = 0x200 - paletteSize;
+        inverted = true;
     }
 
     if (palIndex == 0) {
@@ -1302,6 +1305,36 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
             palette->colors[i].green = 0;
             palette->colors[i].blue = 0;
         }
+    }
+
+    if (verbose) {
+        printf("Suggested NCLR options: ");
+
+        if (paletteHeader[0x0A]) {
+            printf("-comp %d ", paletteHeader[0x0A]);
+        }
+
+        if (data[0x01] == 'P') {
+            printf("-ncpr ");
+        }
+
+        if (palette->numColors < 256) {
+            printf("-nopad ");
+        }
+
+        size_t truePaletteSize = paletteSize;
+        if (inverted) {
+            printf("-invertsize ");
+            truePaletteSize = 0x200 - truePaletteSize;
+        }
+
+        uint16_t sectionCount = (data[0x0F] << 8) | data[0x0E];
+        if (sectionCount == 2) {
+            printf("-pcmp ");
+        }
+
+        printf("-bitdepth %d ", bitdepth);
+        puts("");
     }
 
     free(data);
