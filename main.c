@@ -79,7 +79,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     if (options->paletteFilePath != NULL)
     {
-        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex, false, options->convertTo8Bpp);
+        ReadNtrPalette(options->paletteFilePath, &image.palette, options->bitDepth, options->palIndex, options->convertTo8Bpp);
         image.hasPalette = true;
     }
     else
@@ -795,7 +795,6 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
 {
     struct Palette palette;
     int bitdepth = 0;
-    bool inverted = false;
 
     for (int i = 3; i < argc; i++)
     {
@@ -814,17 +813,13 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
             if (bitdepth != 4 && bitdepth != 8)
                 FATAL_ERROR("Bitdepth must be 4 or 8.\n");
         }
-        else if (strcmp(option, "-invertsize") == 0)
-        {
-            inverted = true;
-        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
         }
     }
 
-    ReadNtrPalette(inputPath, &palette, bitdepth, 0, inverted, false);
+    ReadNtrPalette(inputPath, &palette, bitdepth, 0, false);
     WriteJascPalette(outputPath, &palette);
 }
 

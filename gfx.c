@@ -1243,7 +1243,9 @@ void ReadGbaPalette(char *path, struct Palette *palette)
     free(data);
 }
 
-void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool inverted, bool convertTo8Bpp)
+#define PLTT_HEADER_SIZE 0x18
+
+void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIndex, bool convertTo8Bpp)
 {
     int fileSize;
     unsigned char *data = ReadWholeFile(path, &fileSize);
@@ -1267,8 +1269,15 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
 
     bitdepth = bitdepth ? bitdepth : palette->bitDepth;
 
+    // Some NCLRs are known to exist which have an "inverted" palette size, which is represented as
+    // 0x200 minus the true size in bytes. So, we must verify the palette size stored in the header
+    // with the section size (which is authoritative and never inverted in this way).
+    size_t sectionSize = (paletteHeader[0x04]) | (paletteHeader[0x05] << 8) | (paletteHeader[0x06] << 16) | (paletteHeader[0x07] << 24);
     size_t paletteSize = (paletteHeader[0x10]) | (paletteHeader[0x11] << 8) | (paletteHeader[0x12] << 16) | (paletteHeader[0x13] << 24);
-    if (inverted) paletteSize = 0x200 - paletteSize;
+    if (sectionSize - PLTT_HEADER_SIZE != paletteSize) {
+        paletteSize = 0x200 - paletteSize;
+    }
+
     if (palIndex == 0) {
         palette->numColors = paletteSize / 2;
     } else {
@@ -1276,7 +1285,7 @@ void ReadNtrPalette(char *path, struct Palette *palette, int bitdepth, int palIn
         --palIndex;
     }
 
-    unsigned char *paletteData = paletteHeader + 0x18;
+    unsigned char *paletteData = paletteHeader + PLTT_HEADER_SIZE;
 
     for (int i = 0; i < 256; i++)
     {
