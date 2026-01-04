@@ -285,6 +285,7 @@ void HandleNtrToPngCommand(char *inputPath, char *outputPath, int argc, char **a
     options.convertTo8Bpp = false;
     options.verbose = false;
     options.noSkip = false;
+    options.bitDepth = 0;
 
     for (int i = 3; i < argc; i++)
     {
