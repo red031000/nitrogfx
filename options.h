@@ -41,6 +41,7 @@ struct PngToNtrOptions {
     int mappingType;
     uint32_t encodeMode;
     bool convertTo4Bpp;
+    int rotate;
 };
 
 struct NtrToPngOptions {
