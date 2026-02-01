@@ -42,6 +42,7 @@ struct PngToNtrOptions {
     uint32_t encodeMode;
     bool convertTo4Bpp;
     int rotate;
+    bool noSkip;
 };
 
 struct NtrToPngOptions {
