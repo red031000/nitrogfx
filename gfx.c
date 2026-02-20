@@ -561,36 +561,46 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
 
     bool scanned = charHeader[0x14];
 
-    if (verbose) {
+    if (verbose)
+    {
         printf("Suggested NCGR options: ");
 
-        if (!convertTo8Bpp) {
+        if (!convertTo8Bpp)
+        {
             printf("-bitdepth %d ", bitDepth);
-        } else {
+        }
+        else
+        {
             printf("-convertTo4Bpp ");
         }
 
-        if (buffer[0x6] == 1) {
+        if (buffer[0x6] == 1)
+        {
             printf("-version101 ");
         }
 
-        if (charHeader[0x8] == 0xFF && charHeader[0x9] == 0xFF && charHeader[0xA] == 0xFF && charHeader[0xB] == 0xFF) {
+        if (charHeader[0x8] == 0xFF && charHeader[0x9] == 0xFF && charHeader[0xA] == 0xFF && charHeader[0xB] == 0xFF)
+        {
             printf("-clobbersize ");
         }
 
-        if (buffer[0xE] == 2) {
+        if (buffer[0xE] == 2)
+        {
             printf("-sopc ");
         }
 
-        if (charHeader[0x12]) {
+        if (charHeader[0x12])
+        {
             printf("-mappingtype %d ", 1 << (5 + (charHeader[0x12] >> 4)));
         }
 
-        if (scanned) {
+        if (scanned)
+        {
             printf("-scanned ");
         }
 
-        if (charHeader[0x15] == 1) {
+        if (charHeader[0x15] == 1)
+        {
             printf("-vram ");
         }
 
@@ -794,7 +804,7 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool
         }
         else
         {
-            FATAL_ERROR("Incompatible cell file type\n");
+            FATAL_ERROR("Incompatible cell file type: %s\n", cellFileExtension);
         }
     }
 
@@ -1694,10 +1704,10 @@ void ReadNtrCell_CEBK(unsigned char * restrict data, unsigned int blockOffset, u
     {
         offset = blockOffset + 0x18 + ucatOffset + 0x04 * options->cellCount;
 
-        options->ucatCellAttribtes = malloc(sizeof(uint32_t) * options->cellCount);
+        options->ucatCellAttributes = malloc(sizeof(uint32_t) * options->cellCount);
         for (int i = 0; i < options->cellCount; i++)
         {
-            options->ucatCellAttribtes[i] = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+            options->ucatCellAttributes[i] = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
             offset += 0x04;
         }
     }
@@ -1832,16 +1842,6 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
 
     KBECHeader[16] = (options->mappingType & 0xFF); //not possible to be more than 8 bits, though 32 are allocated
 
-    // offset to UCAT data within KBEC section (offset from KBEC start + 0x1c)
-    if (options->ucatEnabled) 
-    {
-        unsigned int ucatOffset = (kbecSize + 0x20) - ucatSize - 0x08;
-        KBECHeader[28] = ucatOffset & 0xFF;
-        KBECHeader[29] = (ucatOffset >> 8) & 0xFF;
-        KBECHeader[30] = (ucatOffset >> 16) & 0xFF;
-        KBECHeader[31] = (ucatOffset >> 24) & 0xFF;
-    }
-
     // offset to VRAM transfer data within KBEC section (offset from KBEC start + 0x08)
     if (options->vramTransferEnabled) 
     {
@@ -1851,6 +1851,16 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
         KBECHeader[21] = (vramTransferOffset >> 8) & 0xFF;
         KBECHeader[22] = (vramTransferOffset >> 16) & 0xFF;
         KBECHeader[23] = (vramTransferOffset >> 24) & 0xFF;
+    }
+    
+    // offset to UCAT data within KBEC section (offset from KBEC start + 0x1c)
+    if (options->ucatEnabled) 
+    {
+        unsigned int ucatOffset = (kbecSize + 0x20) - ucatSize - 0x08;
+        KBECHeader[28] = ucatOffset & 0xFF;
+        KBECHeader[29] = (ucatOffset >> 8) & 0xFF;
+        KBECHeader[30] = (ucatOffset >> 16) & 0xFF;
+        KBECHeader[31] = (ucatOffset >> 24) & 0xFF;
     }
 
     fwrite(KBECHeader, 1, 0x20, fp);
@@ -2022,7 +2032,7 @@ void WriteNtrCell(char *path, struct JsonToCellOptions *options)
         // attr
         for (int i = 0; i < options->cellCount; i++)
         {
-            unsigned int ucatAttribute = options->ucatCellAttribtes[i];
+            unsigned int ucatAttribute = options->ucatCellAttributes[i];
             KBECContents[offset] = ucatAttribute & 0xFF;
             KBECContents[offset + 1] = (ucatAttribute >> 8) & 0xFF;
             KBECContents[offset + 2] = (ucatAttribute >> 16) & 0xFF;
@@ -2583,7 +2593,7 @@ void WriteNtrAnimation(char *path, struct JsonToAnimationOptions *options)
     if (options->uaatEnabled)
     {
         int offset = uaatOffset - 0x18;
-        
+
         // UAAT magic
         strcpy((char *) (KBNAContents + offset), "TAAU");
         offset += 0x04;

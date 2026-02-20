@@ -111,11 +111,11 @@ struct JsonToCellOptions *ParseNCERJson(char *path)
     {
         cJSON *ucatCells = cJSON_GetObjectItemCaseSensitive(json, "cellAttributes");
 
-        options->ucatCellAttribtes = malloc(sizeof(uint32_t) * options->cellCount);
+        options->ucatCellAttributes = malloc(sizeof(uint32_t) * options->cellCount);
 
         for (int i = 0; i < options->cellCount; i++)
         {
-            options->ucatCellAttribtes[i] = GetInt(cJSON_GetArrayItem(ucatCells, i));
+            options->ucatCellAttributes[i] = GetInt(cJSON_GetArrayItem(ucatCells, i));
         }
     }
 
@@ -348,7 +348,7 @@ char *GetNCERJson(struct JsonToCellOptions *options)
 
         for (int i = 0; i < options->cellCount; i++)
         {
-            cJSON_AddNumberToObject(ucatCells, "cellAttr", options->ucatCellAttribtes[i]);
+            cJSON_AddNumberToObject(ucatCells, "cellAttr", options->ucatCellAttributes[i]);
         }
     }
 
@@ -697,7 +697,7 @@ char *GetNANRJson(struct JsonToAnimationOptions *options)
         cJSON_AddNumberToObject(nanr, "labelCount", options->labelCount);
     }
 
-    if (options->uaatEnabled) 
+    if (options->uaatEnabled)
     {
         cJSON *uaat = cJSON_AddObjectToObject(nanr, "uaatData");
 
@@ -744,7 +744,7 @@ void FreeNCERCell(struct JsonToCellOptions *options)
     }
     if (options->ucatEnabled)
     {
-        free(options->ucatCellAttribtes);
+        free(options->ucatCellAttributes);
     }
     free(options->cells);
     free(options);
