@@ -127,7 +127,7 @@ struct JsonToCellOptions {
     struct CellVramTransferData **transferData;
     char **labels;
     int labelCount;
-    int *ucatCellAttribtes;
+    int *ucatCellAttributes;
 };
 
 struct JsonToScreenOptions {
