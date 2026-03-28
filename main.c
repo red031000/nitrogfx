@@ -499,6 +499,7 @@ void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **a
         {
             if (i + 1 >= argc)
                 FATAL_ERROR("No symbol name after following \"%s\".\n", option);
+
             i++;
 
             options.embedName = argv[i];
