@@ -133,23 +133,25 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
     if (options->handleEmpty)
     {
         FILE *fp = fopen(inputPath, "rb");
+        uint32_t size = 0;
         if (fp != NULL)
         {
             fseek(fp, 0, SEEK_END);
-            uint32_t size = ftell(fp);
+            size = ftell(fp);
             rewind(fp);
-            if (size == 0)
+        }
+
+        if (size == 0)
+        {
+            FILE *out = fopen(outputPath, "wb+");
+            if (out != NULL)
             {
-                FILE *out = fopen(outputPath, "wb+");
-                if (out != NULL)
-                {
-                    fclose(out);
-                }
-                fclose(fp);
-                return;
+                fclose(out);
             }
             fclose(fp);
+            return;
         }
+        fclose(fp);
     }
 
     struct Image image;
