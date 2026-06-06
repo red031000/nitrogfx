@@ -106,7 +106,7 @@ void ConvertNtrToPng(char *inputPath, char *outputPath, struct NtrToPngOptions *
 
     if (options->cellFilePath != NULL)
     {
-        ApplyCellsToImage(options->cellFilePath, &image, true, options->cellSnap, options->noSkip);
+        ApplyCellsToImage(options->cellFilePath, &image, true, options->cellSnap, options->noSkip, options->convertTo8Bpp);
     }
 
     WritePng(outputPath, &image);
@@ -157,6 +157,10 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
     struct Image image;
 
     image.bitDepth = options->bitDepth == 0 ? 4 : options->bitDepth;
+    if (options->convertTo4Bpp)
+    {
+        image.bitDepth = 8;
+    }
 
     ReadPng(inputPath, &image);
 
@@ -179,7 +183,7 @@ void ConvertPngToNtr(char *inputPath, char *outputPath, struct PngToNtrOptions *
 
     if (options->cellFilePath != NULL)
     {
-        ApplyCellsToImage(options->cellFilePath, &image, false, options->cellSnap, options->noSkip);
+        ApplyCellsToImage(options->cellFilePath, &image, false, options->cellSnap, options->noSkip, false);
     }
 
     WriteNtrImage(outputPath, options->numTiles, options->bitDepth, options->colsPerChunk, options->rowsPerChunk,
@@ -505,6 +509,8 @@ void HandlePngToGbaCommand(char *inputPath, char *outputPath, int argc, char **a
             i++;
 
             options.embedName = argv[i];
+
+            i++;
         }
         else
         {
