@@ -843,7 +843,7 @@ void HandlePngToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, c
     }
 
     ReadPngPalette(inputPath, &palette);
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, pcmpStartIndex, inverted, convertTo4Bpp);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, pcmpStartIndex, inverted, convertTo4Bpp, false);
 }
 
 void HandleGbaToJascPaletteCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
@@ -851,7 +851,7 @@ void HandleGbaToJascPaletteCommand(char *inputPath, char *outputPath, int argc U
     struct Palette palette;
 
     ReadGbaPalette(inputPath, &palette);
-    WriteJascPalette(outputPath, &palette);
+    WriteJascPalette(outputPath, &palette, 0);
 }
 
 void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, char **argv)
@@ -888,7 +888,20 @@ void HandleNtrToJascPaletteCommand(char *inputPath, char *outputPath, int argc, 
     }
 
     ReadNtrPalette(inputPath, &palette, bitdepth, 0, false, verbose);
-    WriteJascPalette(outputPath, &palette);
+    if (!palette.extendedLength)
+    {
+        WriteJascPalette(outputPath, &palette, 0);
+    }
+    else
+    {
+        int pathLen = strlen(outputPath);
+        char *extendedOutputPath = calloc(pathLen + 4, sizeof(char));
+        for (int i = 0; i < palette.extendedLength; i++)
+        {
+            snprintf(extendedOutputPath, pathLen + 4, "%.*s_%d.pal", pathLen - 4, outputPath, i);
+            WriteJascPalette(extendedOutputPath, &palette, i);
+        }
+    }
 }
 
 void HandleJascToGbaPaletteCommand(char *inputPath, char *outputPath, int argc, char **argv)
@@ -920,7 +933,7 @@ void HandleJascToGbaPaletteCommand(char *inputPath, char *outputPath, int argc, 
 
     struct Palette palette;
 
-    ReadJascPalette(inputPath, &palette);
+    ReadJascPalette(inputPath, &palette, 0);
 
     if (numColors != 0)
         palette.numColors = numColors;
@@ -939,6 +952,7 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     int pcmpStartIndex = 0;
     bool pcmp = false;
     bool inverted = false;
+    int extendedLength = 0;
 
     for (int i = 3; i < argc; i++)
     {
@@ -1013,6 +1027,17 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
         {
             inverted = true;
         }
+        else if (strcmp(option, "-extended") == 0)
+        {
+
+            if (i + 1 >= argc)
+                FATAL_ERROR("No length value following \"-extended\".\n");
+
+            i++;
+
+            if (!ParseNumber(argv[i], NULL, 10, &extendedLength))
+                FATAL_ERROR("Failed to parse extended length.\n");
+        }
         else
         {
             FATAL_ERROR("Unrecognized option \"%s\".\n", option);
@@ -1020,13 +1045,26 @@ void HandleJascToNtrPaletteCommand(char *inputPath, char *outputPath, int argc, 
     }
 
     struct Palette palette;
-
-    ReadJascPalette(inputPath, &palette);
+    if (!extendedLength)
+    {
+        ReadJascPalette(inputPath, &palette, 0);
+    }
+    else
+    {
+        int pathLen = strlen(inputPath);
+        char *extendedInputPath = calloc(pathLen + 4, sizeof(char));
+        for (int i = 0; i < extendedLength; i++)
+        {
+            snprintf(extendedInputPath, pathLen + 4, "%.*s_%d.pal", pathLen - 4, inputPath, i);
+            ReadJascPalette(extendedInputPath, &palette, i);
+        }
+        palette.numColors *= extendedLength;
+    }
 
     if (numColors != 0)
         palette.numColors = numColors;
 
-    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, pcmpStartIndex, inverted, false);
+    WriteNtrPalette(outputPath, &palette, ncpr, ir, bitdepth, !nopad, compNum, pcmp, pcmpStartIndex, inverted, false, extendedLength);
 }
 
 void HandleJsonToNtrCellCommand(char *inputPath, char *outputPath, int argc UNUSED, char **argv UNUSED)
