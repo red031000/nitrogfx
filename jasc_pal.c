@@ -177,6 +177,7 @@ void WriteJascPalette(char *path, struct Palette *palette, int index)
 
     fputs("JASC-PAL\r\n", fp);
     fputs("0100\r\n", fp);
+    fprintf(fp, "%d\r\n", numColors);
 
     if (index == 0)
     {
