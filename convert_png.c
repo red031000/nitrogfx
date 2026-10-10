@@ -1,4 +1,4 @@
-// Copyright (c) 2015 YamaArashi
+// Copyright (c) 2015 YamaArashi, 2026 red031000
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -102,7 +102,7 @@ void ReadPng(char *path, struct Image *image)
 
     int rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 
-    image->pixels = malloc(image->height * rowbytes);
+    image->pixels = malloc((long)image->height * rowbytes);
 
     if (image->pixels == NULL)
         FATAL_ERROR("Failed to allocate pixel buffer.\n");

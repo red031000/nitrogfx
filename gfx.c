@@ -1,4 +1,4 @@
-// Copyright (c) 2015 YamaArashi, 2021-2025 red031000
+// Copyright (c) 2015 YamaArashi, 2021-2026 red031000
 
 #include <stddef.h>
 #include <string.h>
@@ -509,7 +509,7 @@ void ReadImage(char *path, int tilesWide, int bitDepth, int colsPerChunk, int ro
     image->width = tilesWide * 8;
     image->height = tilesTall * 8;
     image->bitDepth = bitDepth;
-    image->pixels = calloc(tilesWide * tilesTall, tileSize);
+    image->pixels = calloc((long)tilesWide * tilesTall, tileSize);
 
     if (image->pixels == NULL)
         FATAL_ERROR("Failed to allocate memory for pixels.\n");
@@ -639,7 +639,7 @@ uint32_t ReadNtrImage(char *path, int tilesWide, int bitDepth, int colsPerChunk,
     image->width = tilesWide * 8;
     image->height = tilesTall * 8;
     image->bitDepth = convertTo8Bpp ? 8 : bitDepth;
-    image->pixels = calloc(tilesWide * tilesTall, tileSize);
+    image->pixels = calloc((long)tilesWide * tilesTall, tileSize);
 
     if (image->pixels == NULL)
         FATAL_ERROR("Failed to allocate memory for pixels.\n");
@@ -879,12 +879,12 @@ void ApplyCellsToImage(char *cellFilePath, struct Image *image, bool toPNG, bool
     {
         FATAL_ERROR("No cells. Incompatible NCER\n");
     }
-    unsigned char *newPixels = malloc(outputHeight * outputWidth);
-    memset(newPixels, 255, outputHeight * outputWidth);
+    unsigned char *newPixels = malloc((long)outputHeight * outputWidth);
+    memset(newPixels, 255, (long)outputHeight * outputWidth);
 
     int scanHeight = -1;
     int tileMask[outputHeight * outputWidth]; // check for unused (starting) tiles
-    memset(tileMask, 0, outputHeight * outputWidth * sizeof(int));
+    memset(tileMask, 0, (long)outputHeight * outputWidth * sizeof(int));
     for (int i = 0; i < options->cellCount; i++)
     {
         if (options->cells[i]->oamCount == 0)
