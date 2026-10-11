@@ -3,10 +3,11 @@ project('nitrogfx', 'c')
 native = get_option('native')
 install = native and meson.is_cross_build() ? false : true
 
+nitrogfx_lib_flags = run_command('pkg-config', '--cflags', 'libpng', 'zlib').stdout().strip()
 libpng_dep = dependency('libpng', native: native)
 
 nitrogfx_exe = executable('nitrogfx',
-    sources: [
+    sources : [
         'main.c',
         'convert_png.c',
         'gfx.c',
@@ -19,9 +20,21 @@ nitrogfx_exe = executable('nitrogfx',
         'json.c',
         'cJSON.c',
     ],
-    dependencies: libpng_dep,
-    native: native,
-    install: install
+    c_args : [
+        '-Wall',
+        '-Wextra',
+        '-Werror',
+        '-Wno-sign-compare',
+        '-std=gnu17',
+        '-DPNG_SKIP_SETJMP_CHECK',
+		'-D_GNU_SOURCE=1',
+		'-Wno-unused-result',
+        nitrogfx_lib_flags,
+        '-O2',
+    ],
+    dependencies : libpng_dep,
+    native : true,
+	install: install
 )
 
 meson.override_find_program('nitrogfx', nitrogfx_exe)
